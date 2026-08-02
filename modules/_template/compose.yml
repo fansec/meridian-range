@@ -1,0 +1,25 @@
+# Module {{ID}} - the SEALED service(s). Merged on top of engine/compose.yml by `range up {{ID}}`.
+#
+# NEVER add a `ports:` key here. This file is part of the sealed default (labnet is internal:true,
+# nothing published) and `range check` fails the build if a port appears. LAN exposure lives only in
+# ./deploy/*.yml, and most modules never need one.
+services:
+
+  CHANGEME:
+    build: ./servers/CHANGEME
+    container_name: CHANGEME
+    environment:
+      - PORT=8080
+      - LAB_LOG_FILE=/var/log/lab/lab.ndjson
+    volumes:
+      - lablog:/var/log/lab
+    networks:
+      labnet:
+        # Pick a free address. Only one module is deployed at a time, so reuse across modules is fine.
+        ipv4_address: 172.28.0.20
+        aliases: [mcp.lab.consulereit.nl]
+
+  # How this module's targets reach the scenario. No allowlist to maintain anywhere else.
+  harness:
+    env_file:
+      - ./modules/{{DIR}}/lab.env

@@ -1,0 +1,10 @@
+# Prettier is scoped to TypeScript source only (see the "format" script). These paths are never
+# formatted regardless: generated, vendored, or hand-authored capture/asset files.
+**/node_modules
+**/dist
+**/build
+**/package-lock.json
+evidence/
+media/
+*.md
+*.svg

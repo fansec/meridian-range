@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 566" width="980" height="566" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" role="img" aria-label="Module 02 detection pipeline: two independent SOC-owned layers, the app-layer foreign-Host root cause and the EDR payload layer, both alerting to the SOC">
+  <title>Module 02 - detection pipeline, two independent SOC-owned layers</title>
+
+  <rect x="0" y="0" width="980" height="566" rx="16" fill="#f6f8fa"/>
+  <rect x="0.5" y="0.5" width="979" height="565" rx="16" fill="none" stroke="#d0d7de"/>
+
+  <defs>
+    <marker id="f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#57606a"/>
+    </marker>
+    <marker id="fb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0969da"/>
+    </marker>
+  </defs>
+
+  <text x="30" y="46" font-size="20" font-weight="700" fill="#1f2328">Detection pipeline - two independent SOC-owned layers</text>
+  <text x="30" y="70" font-size="12.5" fill="#57606a">CVE-2025-66414 . the signal is the Host the server does not serve, on a request no cross-origin rule can see</text>
+
+  <!-- ===== Layer B ===== -->
+  <text x="30" y="110" font-size="12" font-weight="700" fill="#0969da">Layer B - app-layer access telemetry (the root cause)</text>
+
+  <rect x="28" y="122" width="170" height="86" rx="10" fill="#fff5f5" stroke="#cf222e" stroke-width="1.3"/>
+  <text x="113" y="150" font-size="12.5" font-weight="700" fill="#1f2328" text-anchor="middle">buildbot-mcp</text>
+  <text x="113" y="169" font-size="10" fill="#57606a" text-anchor="middle">the vulnerable app</text>
+  <text x="113" y="187" font-size="10" fill="#cf222e" text-anchor="middle" font-weight="600">(untrusted source)</text>
+
+  <line x1="200" y1="165" x2="226" y2="165" stroke="#57606a" stroke-width="1.5" marker-end="url(#f)"/>
+
+  <rect x="228" y="122" width="212" height="86" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="334" y="146" font-size="11.5" font-weight="700" fill="#1f2328" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">event.dataset: mcp.access</text>
+  <text x="334" y="165" font-size="9.5" fill="#57606a" text-anchor="middle">RAW record: method, path, status,</text>
+  <text x="334" y="180" font-size="9.5" fill="#57606a" text-anchor="middle">Host, Origin (its own), session id</text>
+  <text x="334" y="197" font-size="9.5" fill="#cf222e" text-anchor="middle" font-weight="700">no verdict field</text>
+
+  <line x1="442" y1="165" x2="466" y2="165" stroke="#57606a" stroke-width="1.5" marker-end="url(#f)"/>
+
+  <rect x="468" y="122" width="212" height="86" rx="10" fill="#ddf4ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="574" y="146" font-size="12" font-weight="700" fill="#0969da" text-anchor="middle">SOC ingest pipeline</text>
+  <text x="574" y="165" font-size="9.5" fill="#1f2328" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">derive mcp.host.foreign</text>
+  <text x="574" y="181" font-size="9.5" fill="#57606a" text-anchor="middle">= Host outside the known-good set</text>
+  <text x="574" y="197" font-size="9.5" fill="#57606a" text-anchor="middle">the verdict the app never computed</text>
+
+  <line x1="682" y1="165" x2="706" y2="165" stroke="#57606a" stroke-width="1.5" marker-end="url(#f)"/>
+
+  <rect x="708" y="122" width="224" height="86" rx="10" fill="#ffffff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="820" y="145" font-size="12" font-weight="700" fill="#1f2328" text-anchor="middle">ATR-2026-70018</text>
+  <text x="820" y="163" font-size="9.5" fill="#1f2328" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">url.path:/mcp*</text>
+  <text x="820" y="178" font-size="9.5" fill="#1f2328" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">mcp.host.foreign:true</text>
+  <text x="820" y="196" font-size="9.5" fill="#57606a" text-anchor="middle">and not cross-origin</text>
+
+  <!-- ===== Layer A ===== -->
+  <text x="30" y="246" font-size="12" font-weight="700" fill="#0969da">Layer A - endpoint / EDR telemetry (the payload)</text>
+
+  <rect x="28" y="258" width="170" height="86" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="113" y="286" font-size="12.5" font-weight="700" fill="#1f2328" text-anchor="middle">Elastic Defend</text>
+  <text x="113" y="305" font-size="10" fill="#57606a" text-anchor="middle">EDR on the host</text>
+  <text x="113" y="323" font-size="10" fill="#1a7f37" text-anchor="middle" font-weight="600">(SOC-owned)</text>
+
+  <line x1="200" y1="301" x2="226" y2="301" stroke="#57606a" stroke-width="1.5" marker-end="url(#f)"/>
+
+  <rect x="228" y="258" width="212" height="86" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="334" y="282" font-size="11" font-weight="700" fill="#1f2328" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">logs-endpoint.events.process</text>
+  <text x="334" y="302" font-size="9.5" fill="#1f2328" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">node -&gt; /bin/sh -c</text>
+  <text x="334" y="317" font-size="9.5" fill="#1f2328" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">"...LAB_CANARY..."</text>
+  <text x="334" y="334" font-size="9.5" fill="#57606a" text-anchor="middle">independent of any web log</text>
+
+  <line x1="442" y1="301" x2="706" y2="301" stroke="#57606a" stroke-width="1.5" marker-end="url(#f)"/>
+
+  <rect x="708" y="258" width="224" height="86" rx="10" fill="#ffffff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="820" y="282" font-size="12" font-weight="700" fill="#1f2328" text-anchor="middle">EQL process rule</text>
+  <text x="820" y="301" font-size="9.5" fill="#57606a" text-anchor="middle">parent node, child sh,</text>
+  <text x="820" y="316" font-size="9.5" fill="#1f2328" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">command_line like LAB_CANARY</text>
+  <text x="820" y="333" font-size="9.5" fill="#57606a" text-anchor="middle">catches the payload</text>
+
+  <!-- ===== SOC ===== -->
+  <path d="M932 165 C 964 175, 964 340, 902 386" fill="none" stroke="#0969da" stroke-width="1.6" marker-end="url(#fb)"/>
+  <path d="M790 346 C 790 360, 790 370, 790 386" fill="none" stroke="#0969da" stroke-width="1.6" marker-end="url(#fb)"/>
+
+  <rect x="736" y="390" width="196" height="104" rx="10" fill="#ddf4ff" stroke="#0969da" stroke-width="1.4"/>
+  <text x="834" y="414" font-size="12.5" font-weight="700" fill="#0969da" text-anchor="middle">SOC / SIEM</text>
+  <text x="834" y="434" font-size="9.5" fill="#57606a" text-anchor="middle">alert (high severity)</text>
+  <text x="834" y="450" font-size="9.5" fill="#57606a" text-anchor="middle">scoped to the lab host.name</text>
+  <text x="834" y="466" font-size="9.5" fill="#57606a" text-anchor="middle">authored disabled until</text>
+  <text x="834" y="482" font-size="9.5" fill="#57606a" text-anchor="middle">a verified live hit</text>
+
+  <!-- ===== the note ===== -->
+  <rect x="28" y="390" width="680" height="104" rx="10" fill="#fbfaff" stroke="#8250df" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <text x="46" y="414" font-size="11.5" font-weight="700" fill="#6639ba">Why this rule exists alongside module 01's</text>
+  <text x="46" y="435" font-size="10" fill="#57606a">The rebind request is same-origin, so its Origin matches its Host and ATR-2026-70001 stays silent. Not a gap in</text>
+  <text x="46" y="451" font-size="10" fill="#57606a">the CORS rule, it is the defining property of this attack. What remains anomalous is the Host: a name this server does</text>
+  <text x="46" y="467" font-size="10" fill="#57606a">not serve. The lab app precomputes foreign_host for convenience, which is the anti-pattern: a real deployment ships the</text>
+  <text x="46" y="483" font-size="10" fill="#57606a">raw Host and derives the verdict SOC-side, because a SOC never trusts the target to grade its own compromise.</text>
+
+  <text x="30" y="526" font-size="10" fill="#57606a">Definition of done: reproduce (ATTACK-OK) then detect. Both layers fire on the lab run and stay silent on benign local-client traffic (a known-good Host).</text>
+  <text x="30" y="544" font-size="10" fill="#57606a">Turning the Host allow-list on stops the attack while the telemetry is still emitted, so the rule keeps firing on the attempt.</text>
+</svg>

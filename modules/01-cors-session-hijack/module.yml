@@ -1,0 +1,65 @@
+# Module 01 manifest. This file IS the catalog row: `range` discovers modules by globbing
+# modules/*/module.yml, so adding a module means adding a directory and nothing else.
+#
+# Paths inside a module are CONVENTION, not configuration:
+#   scenario.ts            the runnable attack        detection/*.yaml   ATR rule(s)
+#   compose.yml            the sealed service(s)      detection/elastic.md  prose rule
+#   deploy/<tier>.yml      opt-in exposed tiers       evidence/<variant>.txt  the ATTACK-OK capture
+#   env.example            the module's own knobs     README.md          the writeup
+version: 1
+
+id: "01"
+slug: "cors-session-hijack"
+name: "CORS Session Hijack"
+status: "active"                          # active | coming_soon
+track: "A"                                # A=transport/session/auth
+
+owasp: ["LLM06"]                          # Excessive Agency
+asi:   ["ASI02", "ASI03"]                 # OWASP Agentic Security Initiative (2026)
+mcp:   ["MCP07"]                          # OWASP MCP Top 10 (beta v0.1): Insufficient AuthN/AuthZ (verify)
+atlas: []                                 # MITRE ATLAS techniques, each (verify) until checked
+cve:
+  - { id: "CVE-2026-34237", cvss: 6.1, role: "anchor" }   # MCP Java SDK (mcp-core 1.0.0) hardcodes ACAO:* so the session id is disclosed on the SSE endpoint event (CWE-942); patched 0.18.3 / 1.0.1 / 1.1.1
+cwe:   ["CWE-942", "CWE-78", "CWE-862", "CWE-346"]        # 942 permissive-CORS (anchor); 78 exec; 862 missing-authz + 346 origin-validation (ATR-70001)
+
+server:         "servers/mcp-ci-java"     # Spring Boot "Meridian CI"; pins the vulnerable mcp-core 1.0.0
+server_service: "mcp-ci"                  # the compose service name this module reproduces against
+transport:      "http+sse"                # http+sse | streamable-http  (selects the harness client)
+harness_mode:   "deterministic"           # deterministic | agent-emulation
+
+# `range matrix 01` rebuilds server_service at each version below and re-runs the scenario, producing
+# the reproduce/no-repro grid. The build arg is the server Dockerfile's own knob.
+matrix:
+  build_arg: "MCP_SDK_VERSION"
+  versions:
+    - { version: "1.0.0",  expect: "reproduce" }   # the anchor: affected
+    - { version: "1.0.1",  expect: "no-repro" }    # first patched release on the 1.0 line
+    - { version: "1.1.1",  expect: "no-repro" }
+    - { version: "0.18.3", expect: "no-repro" }
+
+# Read-only probe checks this module contributes to `range probe`. Never exec: a probe observes the
+# transport response only, it does not drive a capability tool (probe mode is read-only).
+probe:
+  safe_checks:
+    - id: "wildcard-acao"
+      description: "The MCP SSE endpoint answers a foreign Origin with Access-Control-Allow-Origin: *"
+    - id: "session-id-disclosed"
+      description: "The SSE endpoint event discloses a session id readable cross-origin"
+
+topology:
+  tiers: ["sealed", "single-host", "split-host"]
+  traefik: true
+  roles:
+    - { role: "mcp",       side: "victim",   service: "mcp-ci",             port: 8080 }
+    - { role: "hacker",    side: "attacker", service: "attacker-web",       port: 1337 }
+    - { role: "collector", side: "attacker", service: "attacker-collector", port: 9000 }
+
+verified: "2026-08-02"                    # VM-verified: Java mcp-core 1.0.0, HTTP/SSE endpoint-event leak, ATTACK-OK
+blog_url: null                            # set when published
+
+description: >
+  The MCP Java SDK's HTTP/SSE transport (mcp-core 1.0.0) hardcodes Access-Control-Allow-Origin:*,
+  so a foreign browser Origin can read the SSE `endpoint` event, lift the session id it discloses,
+  and drive the victim's capability-bearing MCP server (Meridian CI) cross-origin (CVE-2026-34237,
+  CWE-942). This module is CORS-only and needs NO DNS: it runs with plain IP addresses or ordinary
+  fixed DNS records. DNS rebinding is a separate attack, see module 02.

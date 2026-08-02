@@ -1,0 +1,30 @@
+# Module 01 single-host tier (opt-in, lab VM only). Publishes all three services on one box.
+# Prefer split-host: it is more realistic and keeps mcp-ci (run_command) off the attacker side.
+# INSECURE BY DESIGN - isolated lab LAN only. See SECURITY.md.
+#   MERIDIAN_ON_VM=1 ./range up 01 --tier single-host
+#   then, from the lab LAN:  http://<VM_IP>:1337/lan.html?samehost=1
+#
+# An OVERLAY on engine/compose.yml + ../compose.yml.
+
+networks:
+  edge:                          # non-internal; labnet alone cannot publish a port
+    driver: bridge
+
+services:
+  attacker-web:
+    ports:
+      - "${WEB_PORT:-1337}:80"
+    networks:
+      edge: {}
+
+  mcp-ci:
+    ports:
+      - "${MCP_PORT:-8080}:8080"
+    networks:
+      edge: {}
+
+  attacker-collector:
+    ports:
+      - "${COLLECTOR_PORT:-9000}:9000"
+    networks:
+      edge: {}

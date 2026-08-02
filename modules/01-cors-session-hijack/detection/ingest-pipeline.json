@@ -1,0 +1,21 @@
+{
+  "description": "Meridian Range module 01 (CVE-2026-34237) - SOC-side enrichment for MCP access telemetry. The vulnerable Meridian CI app emits only RAW access facts (event.dataset: mcp.access) with the browser Origin and Host headers; it never computes a hijack verdict. This pipeline derives mcp.cors.cross_origin from Origin vs Host so detection rule ATR-2026-70001 can key on it. Deploy scoped to the lab data only (see TELEMETRY-CONTRACT.md); apply as a @custom pipeline on the mcp.access data stream, or as the pipeline of a Custom Logs / reverse-proxy integration on the lab agent policy.",
+  "processors": [
+    {
+      "script": {
+        "if": "ctx.event != null && ctx.event.dataset == 'mcp.access'",
+        "lang": "painless",
+        "description": "Derive mcp.cors.* from the raw Origin and Host headers",
+        "source": "def origin = ctx.http?.request?.headers?.origin; def host = ctx.http?.request?.headers?.host; if (ctx.mcp == null) { ctx.mcp = new HashMap(); } if (ctx.mcp.cors == null) { ctx.mcp.cors = new HashMap(); } if (origin == null || origin.isEmpty()) { ctx.mcp.cors.origin_present = false; ctx.mcp.cors.cross_origin = false; return; } String oh = origin; int s = oh.indexOf('://'); if (s >= 0) { oh = oh.substring(s + 3); } int p = oh.indexOf('/'); if (p >= 0) { oh = oh.substring(0, p); } ctx.mcp.cors.origin_present = true; ctx.mcp.cors.origin_host = oh; boolean cross = (host == null) ? true : !(oh.equalsIgnoreCase(host)); ctx.mcp.cors.cross_origin = cross;"
+      }
+    }
+  ],
+  "on_failure": [
+    {
+      "set": {
+        "field": "error.message",
+        "value": "mcp-access-cors-pipeline: {{ _ingest.on_failure_message }}"
+      }
+    }
+  ]
+}

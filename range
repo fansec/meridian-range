@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Meridian Range - the single entry point. Everything the range can do is a subcommand of this file.
+#
+#   ./range --help          every command, and whether it is [dev] or [VM]
+#   ./range list            the modules on disk
+#   ./range check           the offline gates
+#
+# Implementation lives in engine/cli/ (python3 + PyYAML). Deliberately one executable at the repo
+# root rather than a bin/ directory: the verbs belong to one tool, not to eleven scripts.
+set -euo pipefail
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec python3 "$REPO/engine/cli/main.py" "$@"

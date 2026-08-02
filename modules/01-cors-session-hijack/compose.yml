@@ -1,0 +1,48 @@
+# Module 01 - the SEALED services. Merged on top of engine/compose.yml by `range up 01`.
+# Never add `ports:` here: this file is part of the sealed default and `range check` fails on it.
+# LAN exposure lives only in ./deploy/*.yml.
+services:
+
+  # Module 01 anchor. INSECURE BY DESIGN: MCP Java SDK mcp-core 1.0.0 hardcodes
+  # Access-Control-Allow-Origin:* and leaks the session id on the SSE `endpoint` event
+  # (CVE-2026-34237, patched 0.18.3 / 1.0.1 / 1.1.1). Dressed as "Meridian CI".
+  mcp-ci:
+    build:
+      context: ./servers/mcp-ci-java
+      args:
+        # Default = the affected release (the anchor). `range matrix 01` overrides this per row.
+        MCP_SDK_VERSION: ${MCP_SDK_VERSION:-1.0.0}
+    container_name: mcp-ci
+    environment:
+      - PORT=8080
+      - LAB_LOG_FILE=/var/log/lab/lab.ndjson
+    volumes:
+      - lablog:/var/log/lab
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.11
+        aliases: [mcp.lab.consulereit.nl]
+
+  # Same source on the PATCHED SDK, for the side-by-side comparison a reader expects in the writeup.
+  # `range matrix 01` covers the same ground automatically across every declared version; this service
+  # stays because the writeup's "Fixed" column cites a single named container.
+  #   docker compose --profile fixed up -d --build mcp-ci-fixed
+  mcp-ci-fixed:
+    build:
+      context: ./servers/mcp-ci-java
+      args:
+        MCP_SDK_VERSION: "1.0.1"         # the patched release; the default build stays 1.0.0
+    container_name: mcp-ci-fixed
+    profiles: ["fixed"]                  # opt-in mitigation demo only; never on a plain `up`
+    environment:
+      - PORT=8080
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.12
+        aliases: [mcp-fixed.lab.consulereit.nl]
+
+  # The module's own sealed-tier targets reach the scenario through this file, so no variable
+  # allowlist has to be maintained anywhere.
+  harness:
+    env_file:
+      - ./modules/01-cors-session-hijack/lab.env

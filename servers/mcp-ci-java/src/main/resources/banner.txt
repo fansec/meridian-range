@@ -1,0 +1,8 @@
+
+  __  __         _    _ _                 ___ ___
+ |  \/  |___ _ _(_)__| (_)__ _ _ _       / __|_ _|
+ | |\/| / -_) '_| / _` | / _` | ' \     | (__ | |
+ |_|  |_\___|_| |_\__,_|_\__,_|_||_|     \___|___|
+
+ Build Assistant (MCP)  ·  v${application.version:2.3.0}
+ Spring Boot ${spring-boot.version}  ·  transport: HTTP/SSE  ·  platform-engineering

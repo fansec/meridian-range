@@ -1,0 +1,73 @@
+# === This file is BOTH .gitignore and .dockerignore ===
+# .dockerignore is a symlink to this file, by project decision, so there is one list to maintain
+# instead of two that drift. Two consequences worth knowing before editing:
+#   1. Anything added here disappears from git AND from every image build context. Never add a path
+#      an image needs (config/, engine/, servers/, modules/) or a doc that should stay tracked.
+#   2. Paths are anchored with a leading slash where root-only is meant. Docker treats every pattern
+#      as relative to the context root anyway; git would otherwise match the name at any depth, and
+#      an unanchored `package.json` would also drop the per-project manifests the images build from.
+
+# === Secrets & local config (never commit) ===
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+secrets/
+
+# === Local-only, kept off every remote by project decision ===
+# The agent contract, the working agreement and the safety rules stay on the authoring host: they
+# describe how this lab is operated, which is not something the published code needs to carry.
+CLAUDE.md
+/AGENTS.md
+/SECURITY.md
+
+# === Local-only tooling config (useful here, not part of the shipped range) ===
+/.editorconfig
+/package.json
+/package-lock.json
+
+# === Operator-side tooling and lab inventory (separate PRIVATE repo, checked out here) ===
+# ops/ holds the capture rig that produces the README clip, raw recordings, and the lab host
+# inventory. None of it is part of the reproduce-to-detect loop, and some of it names real
+# infrastructure, so it lives in its own repo rather than this one. Deliberately NOT a submodule: a
+# submodule would record a pointer nobody outside the lab can clone.
+ops/
+
+# === Version control (a no-op for git, keeps history out of every build context) ===
+.git/
+
+# === Node / build ===
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# === Python tooling cache (the offline helpers under engine/cli/) ===
+__pycache__/
+*.pyc
+.ruff_cache/
+
+# === Evidence ===
+# The sanitised captures under modules/*/evidence/*.txt ARE committed: they are the reproduction
+# proof, and since `range verify` writes them, they are a product of a real run. Raw artefacts are
+# not: they are large, they are binary, and they routinely carry real addresses.
+*.pcap
+*.har
+*.mp4
+*.webm
+modules/*/evidence/raw/
+modules/*/evidence/*.png
+modules/*/evidence/*.jpg
+modules/*/evidence/*.jpeg
+
+# Raw screen captures live next to the capture rig in the private ops/ checkout (already ignored
+# above). Only the finished, frame-reviewed clip is committed, under the module it belongs to
+# (see media/README.md for the publication rule).
+
+# === OS / editor cruft ===
+.DS_Store
+Thumbs.db
+*.swp
+*~

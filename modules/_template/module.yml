@@ -1,0 +1,65 @@
+# Module {{ID}} manifest. Created by `range new {{ID}} {{SLUG}}`.
+#
+# This file IS the catalog row: `range` globs modules/*/module.yml, so nothing outside this directory
+# has to learn that the module exists. Everything else is found by convention:
+#   scenario.ts  compose.yml  lab.env  README.md  detection/*.yaml  detection/elastic.md  evidence/
+#
+# Fill this in FIRST. The scenario reads its own identity (title, CVE, CWE) from here, so nothing is
+# restated in code, and `range check` cross-checks the detection rule's framework ids against it.
+version: 1
+
+id: "{{ID}}"
+slug: "{{SLUG}}"
+name: "{{NAME}}"
+status: "coming_soon"                     # active only once the VM has run `range verify {{ID}}`
+track: "A"                                # A=transport/session/auth  B=tool metadata / prompt injection
+
+owasp: ["LLM06"]                          # OWASP LLM Top 10; replace with the ones that really apply
+asi:   []                                 # OWASP Agentic Security Initiative
+mcp:   []                                 # OWASP MCP Top 10 (beta), mark unverified ids (verify)
+atlas: []                                 # MITRE ATLAS, each (verify) until checked against the source
+cve:
+  # Every module anchors to an ALREADY-PUBLISHED CVE. Never invent an id, a version or a citation.
+  - { id: "CVE-0000-00000", cvss: 0.0, role: "anchor" }
+cwe:   []                                 # the anchor CWE first
+
+server:         "servers/CHANGEME"        # a new server, or an existing one reused behind a flag
+server_service: "CHANGEME"                # the compose service name in ./compose.yml
+transport:      "streamable-http"         # http+sse | streamable-http
+harness_mode:   "deterministic"           # deterministic | agent-emulation
+
+# Optional. `range matrix {{ID}}` reproduces against every row, which is how this repo answers
+# "is the version I run affected, and does the documented fix actually hold?". Delete if the module
+# has no version or flag axis.
+matrix:
+  build_arg: null                         # a Dockerfile ARG the compose file interpolates
+  env_var: null                           # or a service environment variable
+  versions: []
+    # - { version: "1.2.3", expect: "reproduce" }
+    # - { version: "1.2.4", expect: "no-repro" }
+
+# Optional. Read-only observations `range probe` may make against a target. NEVER anything that
+# executes: a probe checks whether the vulnerable condition is present, nothing more.
+probe:
+  safe_checks: []
+    # - { id: "some-observable-condition", description: "what a probe can see without executing" }
+
+topology:
+  # MOST MODULES NEED ONLY `sealed`, and therefore no DNS, no second host and no deploy/ directory.
+  # A server-side attack (command injection, file disclosure, tool poisoning) has no attacker
+  # infrastructure to separate. Add single-host / split-host only when the attack's premise IS a
+  # trust boundary between attacker infra and victim (a browser, a cross-origin request, an upstream).
+  tiers: ["sealed"]
+  traefik: false
+  roles: []
+    # Reuse an existing ROLE name (mcp / hacker / collector / rebind). Roles are named for what they
+    # ARE, not for a module, which is what lets DNS names and routers be shared instead of multiply.
+    # - { role: "mcp", side: "victim", service: "CHANGEME", port: 8080 }
+
+verified: null                            # the VM run date, set by you once `range verify` is green
+blog_url: null
+
+description: >
+  One paragraph: what the vulnerable behaviour is, which control fails, and what an attacker gets
+  out of it. This text is what the catalog table and the OWASP map quote, so write it for a reader
+  who has not opened the module.

@@ -1,0 +1,12 @@
+{
+  "// note": "Shared TypeScript settings for every TS project in the repo (harness, servers, attacker infra). They used to be three near-identical copies; keep the differences in each project's own tsconfig.json.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}

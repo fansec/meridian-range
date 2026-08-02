@@ -1,0 +1,31 @@
+# Module 02 - the SEALED services. Merged on top of engine/compose.yml by `range up 02`.
+# Never add `ports:` here: this file is part of the sealed default and `range check` fails on it.
+# LAN exposure (and the live rebind, which needs two hosts) lives only in ./deploy/*.yml.
+services:
+
+  # Module 02 victim. INSECURE BY DESIGN: the TypeScript SDK ships DNS-rebind protection OFF by
+  # default (CVE-2025-66414). The deterministic scenario reaches it here; the LIVE rebind is the
+  # two-host split-host tier under ./deploy/.
+  mcp-vuln:
+    build:
+      context: .
+      dockerfile: servers/ts-vuln/Dockerfile
+    container_name: mcp-vuln
+    environment:
+      - PORT=8080
+      # Telemetry by default: this derives the `foreign_host` signal without the server acting on it.
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-mcp.lab.consulereit.nl,localhost,127.0.0.1}
+      # The mitigation under study, OFF by default exactly as the SDK ships it. `range matrix 02`
+      # flips it to 1 to show the Host allow-list holding.
+      - ENABLE_DNS_REBIND_PROTECTION=${ENABLE_DNS_REBIND_PROTECTION:-0}
+      - LAB_LOG_FILE=/var/log/lab/lab.ndjson
+    volumes:
+      - lablog:/var/log/lab
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.10
+        aliases: [mcp.lab.consulereit.nl]
+
+  harness:
+    env_file:
+      - ./modules/02-dns-rebind/lab.env
