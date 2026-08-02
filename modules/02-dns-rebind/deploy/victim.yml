@@ -1,0 +1,30 @@
+# Module 02 victim side (opt-in, victim VM only). Publishes mcp-vuln on the SAME port as the attacker
+# page (see ./attacker.yml). The rebind domain resolves here AFTER the flip - the FINAL answer.
+# INSECURE BY DESIGN (run_command) - isolated lab LAN only. See ../README.md and SECURITY.md.
+#   MERIDIAN_ON_VM=1 ./range up 02 --tier split-host --side victim
+#
+# STANDALONE, not an overlay: it runs on a different host than the sealed base lab.
+
+name: meridian-range-02-victim
+
+networks:
+  edge:
+    driver: bridge
+
+services:
+  mcp-vuln:
+    build:
+      context: .
+      dockerfile: servers/ts-vuln/Dockerfile
+    container_name: mcp-vuln
+    environment:
+      - PORT=8080
+      # The rebind host is deliberately ABSENT here, so the server derives foreign_host=true for the
+      # post-rebind request. Telemetry only while ENABLE_DNS_REBIND_PROTECTION stays 0: the server
+      # records the mismatch and serves the request anyway. ATR-2026-70018 keys on that signal.
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-mcp.lab.consulereit.nl,localhost,127.0.0.1}
+      - ENABLE_DNS_REBIND_PROTECTION=${ENABLE_DNS_REBIND_PROTECTION:-0}
+    ports:
+      - "${VICTIM_HTTP_PORT:-8080}:8080"
+    networks:
+      edge: {}

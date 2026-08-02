@@ -1,0 +1,85 @@
+id: ATR-2026-70001
+title: "MCP session hijack via cross-origin request (wildcard CORS)"
+status: experimental
+severity: high
+description: >
+  A request to the MCP HTTP/SSE transport that carries a browser `Origin` header is anomalous: a
+  legitimate local MCP client sends none. When that Origin resolves to a different host than the server
+  it is addressing, it is a cross-origin read/relay of the MCP session - the signature of a wildcard-CORS
+  session hijack over the affected MCP Java SDK transport (CVE-2026-34237). Crucially, the cross-origin
+  verdict `mcp.cors.cross_origin` is DERIVED SOC-side by an ingest pipeline from the RAW `Origin` and
+  `Host` headers in web/access telemetry - it is NOT computed by the untrusted, vulnerable application.
+  Meridian Range module 01.
+author: "Meridian Range"
+date: "2026/07/30"
+tags:
+  category: session-hijack
+  scan_target: mcp
+# SOC-owned web/reverse-proxy access telemetry (dataset mcp.access), enriched by the ingest pipeline
+# below. The vulnerable app is only a raw log source; it never emits a detection verdict.
+agent_source:
+  type: http_access_log
+telemetry_contract: "docs/telemetry-contract.md"
+ingest_pipeline: "modules/01-cors-session-hijack/detection/ingest-pipeline.json"
+detection:
+  condition: all
+  conditions:
+    - field: event.dataset
+      operator: exact
+      value: "mcp.access"
+    - field: url.path
+      operator: regex
+      value: "^/mcp/"                 # the MCP HTTP/SSE transport (/mcp/sse read + /mcp/message relay)
+    - field: mcp.cors.cross_origin
+      operator: exact
+      value: "true"                   # DERIVED at ingest from http.request.headers.origin vs .host (SOC-side)
+response:
+  actions: [alert]                    # the SOC does not control the app; contain at the network / EDR layer
+references:
+  owasp_asi: [ASI02, ASI03]
+  safe_mcp: ["(session-hijack via CORS - verify)"]
+  owasp_llm: [LLM06]
+  cwe: [CWE-942, CWE-346, CWE-862]
+  cve: [CVE-2026-34237]
+notes: >
+  Two independent detection layers (see ./elastic.md). This app-layer rule
+  catches the ROOT CAUSE - a cross-origin read/relay on the MCP transport. The endpoint rule (Elastic
+  Defend) catches the PAYLOAD - `java -> /bin/sh -c "...LAB_CANARY..."` - from EDR process telemetry, so
+  neither layer depends on the vulnerable application self-reporting.
+test_cases:
+  true_positives:
+    # cross-origin SSE read: the endpoint-event leak. Ingest derived cross_origin from Origin host != Host.
+    - input:
+        { event.dataset: "mcp.access", url.path: "/mcp/sse", http.request.method: "GET",
+          http.request.headers.origin: "https://attacker.lab.consulereit.nl", http.request.headers.host: "mcp.lab.consulereit.nl:8080",
+          mcp.cors.cross_origin: "true", http.response.status_code: "200" }
+      expected: trigger
+    # cross-origin relay to the message endpoint over the hijacked session
+    - input:
+        { event.dataset: "mcp.access", url.path: "/mcp/message", http.request.method: "POST",
+          http.request.headers.origin: "https://attacker.lab.consulereit.nl", http.request.headers.host: "mcp.lab.consulereit.nl:8080",
+          mcp.cors.cross_origin: "true" }
+      expected: trigger
+  true_negatives:
+    # legitimate local MCP client - no Origin header at all -> ingest sets cross_origin false
+    - input:
+        { event.dataset: "mcp.access", url.path: "/mcp/sse", http.request.method: "GET",
+          http.request.headers.host: "mcp.lab.consulereit.nl:8080", mcp.cors.cross_origin: "false" }
+      expected: no_trigger
+    # same-origin browser MCP client (rare but legitimate) - Origin host == Host -> cross_origin false
+    - input:
+        { event.dataset: "mcp.access", url.path: "/mcp/sse",
+          http.request.headers.origin: "http://mcp.lab.consulereit.nl:8080", http.request.headers.host: "mcp.lab.consulereit.nl:8080",
+          mcp.cors.cross_origin: "false" }
+      expected: no_trigger
+    # cross-origin request but NOT the MCP transport (e.g. the /version banner) - out of scope
+    - input:
+        { event.dataset: "mcp.access", url.path: "/version",
+          http.request.headers.origin: "https://attacker.lab.consulereit.nl", http.request.headers.host: "mcp.lab.consulereit.nl:8080",
+          mcp.cors.cross_origin: "true" }
+      expected: no_trigger
+    # the endpoint-layer payload event belongs to the Defend rule, not this app-layer rule
+    - input:
+        { event.dataset: "endpoint.events.process", process.name: "sh",
+          process.command_line: "id; hostname; echo LAB_CANARY_50" }
+      expected: no_trigger

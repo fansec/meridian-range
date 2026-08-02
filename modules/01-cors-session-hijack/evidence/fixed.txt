@@ -1,0 +1,72 @@
+# Meridian Range evidence capture (written by the harness, not by hand).
+# module   : 01-cors-session-hijack
+# variant  : fixed
+# verdict  : NO-REPRO (did not reproduce)
+# captured : 2026-08-02T09:47:17.738Z
+# Addresses and hostnames below are lab-internal; the canary is benign by construction.
+==============================================================================
+  CVE-2026-34237  Wildcard CORS session hijack over the MCP HTTP/SSE transport
+  target http://mcp-fixed.lab.consulereit.nl:8080   attacker Origin https://attacker.lab.consulereit.nl
+  started 2026-08-02T09:47:17.641Z   canary-only, labnet-internal
+==============================================================================
+
+[INFO ] Attacker page at https://attacker.lab.consulereit.nl models a "build #4209 failed" status link a developer opens.
+[STEP ] Opening MCP session: cross-origin GET /mcp/sse from Origin https://attacker.lab.consulereit.nl
+[FAIL ] Wildcard CORS absent: Access-Control-Allow-Origin=none (a browser could not read the stream)
+
+RESULT
+------
+  Vulnerability : CVE-2026-34237 (CWE-942)
+  Scenario      : 01-cors-session-hijack
+  Status        : NOT REPRODUCED
+  Confidence    : N/A
+  Duration      : 94 ms
+  Reason        : cors_read_blocked
+
+EVIDENCE (observed facts)
+-------------------------
+  (no observations recorded)
+
+CONCLUSION
+----------
+  The wildcard-CORS read did not reproduce against this server: a browser
+  Origin could not read the SSE stream, so no session id was disclosed and
+  the attack chain stops at the transport. This is the expected behaviour of
+  a patched SDK (mcp-core 0.18.3 / 1.0.1 / 1.1.1), where the transport no
+  longer emits a blanket Access-Control-Allow-Origin.
+
+EVIDENCE TIMELINE
+-----------------
+  09:47:17.642  +    1ms  Attacker page at https://attacker.lab.consulereit.nl models a "build #4209 failed" status link a developer opens.
+  09:47:17.642  +    1ms  Opening MCP session: cross-origin GET /mcp/sse from Origin https://attacker.lab.consulereit.nl
+  09:47:17.724  +   83ms  Wildcard CORS absent: Access-Control-Allow-Origin=none (a browser could not read the stream)
+
+RAW HTTP EVIDENCE (replayable protocol capture)
+-----------------------------------------------
+
+  # Session-id read - cross-origin SSE (EventSource GET)
+  > GET /mcp/sse HTTP/1.1
+  > Host: mcp-fixed.lab.consulereit.nl:8080
+  > accept: text/event-stream
+  > origin: https://attacker.lab.consulereit.nl
+  < HTTP/1.1 200
+  < content-type: text/event-stream;charset=UTF-8
+  < cache-control: no-cache
+  < connection: keep-alive, keep-alive
+  < transfer-encoding: chunked
+  < [SSE] event: endpoint
+  < [SSE] data: /mcp/message?sessionId=25bb94a8-cf25-4d73-998f-73fcdb413c2c
+
+IOC SUMMARY (incident-response artifact)
+----------------------------------------
+  Endpoints:       /mcp/sse  /mcp/message?sessionId=<redacted>
+  Methods:         GET, POST
+  Header Origin:   https://attacker.lab.consulereit.nl
+  Header Host:     mcp-fixed.lab.consulereit.nl:8080
+  User-Agent:      browser-class (Origin header present; drive-by observed as HeadlessChrome/124.0.0.0)
+  Session id:      (none)
+  Tools driven:    none (chain stopped at the transport before any tool call)
+  Source:          foreign browser Origin, labnet 172.28.0.0/16
+  Exfil sink:      http://collector.lab.consulereit.nl:9000/pwned
+  Detections:      ATR-2026-70001 (mcp.access, mcp.cors.cross_origin:true)  Elastic Defend EQL (java -> sh, LAB_CANARY)
+

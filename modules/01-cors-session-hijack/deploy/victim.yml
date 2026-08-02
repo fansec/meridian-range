@@ -1,0 +1,23 @@
+# Module 01 victim side (opt-in, lab VM only). Publishes mcp-ci :8080.
+# INSECURE BY DESIGN (run_command) - isolated lab LAN only. See SECURITY.md.
+#   MERIDIAN_ON_VM=1 ./range up 01 --tier split-host --side victim
+#
+# An OVERLAY: it is merged on top of engine/compose.yml + ../compose.yml, so it re-declares only the
+# port publication and the non-internal bridge that carries it.
+
+networks:
+  edge:                          # non-internal; labnet alone cannot publish a port
+    driver: bridge
+
+services:
+  mcp-ci:
+    ports:
+      - "${MCP_PORT:-8080}:8080"
+    networks:
+      edge: {}
+
+  # The `edge` bridge is also what an operator-side capture rig rides: the sealed labnet cannot reach
+  # an external Traefik, so a real browser driving the attack over DNS hostnames needs a way out. Such
+  # a rig belongs on THIS side for module 01, because a terminal tailing telemetry only ever sees the
+  # lab.ndjson local to its own host, and this is the host where the victim MCP writes. It carries no
+  # exec/file/network tool (SECURITY.md rule 1a) and ships separately as an extra `-f` overlay.

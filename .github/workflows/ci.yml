@@ -1,0 +1,71 @@
+name: ci
+
+# Offline [dev] gates only. This workflow NEVER builds or runs a lab container: the capability-bearing
+# servers run solely on the isolated lab VM. It runs exactly the checks the
+# authoring host is allowed to run, and it runs them through `./range`, so CI and a local run cannot
+# drift apart the way they did when CI re-implemented the compose-fragment rule in bash.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A second push to the same ref makes the first run's answer irrelevant, so stop paying for it.
+# Never cancel on the default branch: those runs back the badge in the README.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python tooling
+        run: python -m pip install --upgrade pyyaml ruff
+
+      - name: Module structure, manifests, detections and safety gates
+        run: ./range check
+
+      - name: Generated views up to date
+        run: ./range render --check
+
+      - name: Detection rules agree with their test cases
+        run: ./range detect-test
+
+      - name: Writing-style rule
+        run: ./range style
+
+      # `./range typecheck` and `./range lint` are NOT run here. They need the repo-root npm tooling
+      # manifest, which is deliberately not tracked (see .gitignore), so a fresh clone cannot install
+      # it. Both stay authoring-host gates: run them locally before pushing.
+
+      - name: Detection export still produces a valid pack
+        run: |
+          ./range export --format sigma  --out "$RUNNER_TEMP/pack"
+          ./range export --format elastic --out "$RUNNER_TEMP/pack"
+
+      # Validates the sealed base merged with each module, AND every opt-in deploy fragment. Starts
+      # nothing: `config` only parses and merges. `range plan` prints the exact -f chain each tier
+      # uses, so what CI validates is what a deployment would actually run.
+      - name: Compose static validation (starts nothing)
+        run: |
+          set -euo pipefail
+          for module in $(./range list | awk 'NR>2 {print $1}'); do
+            for tier in $(./range list | awk -v m="$module" 'NR>2 && $1==m {for(i=5;i<=NF;i++) printf "%s ", $i}'); do
+              for side in victim attacker; do
+                cmd=$(./range plan "$module" --tier "$tier" --side "$side" 2>/dev/null | grep '^docker compose' || true)
+                [ -z "$cmd" ] && continue
+                echo "validating: module $module tier $tier side $side"
+                eval "${cmd% up*} config" >/dev/null
+              done
+            done
+          done
+          echo "compose validation OK"

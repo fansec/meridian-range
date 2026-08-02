@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Meridian CI - Build Assistant (MCP)
+
+  INSECURE BY DESIGN - lab only. This service pins the VULNERABLE MCP Java SDK release
+  io.modelcontextprotocol.sdk:mcp-core 1.0.0, which is affected by CVE-2026-34237
+  (CWE-942, permissive cross-domain policy). The HttpServletSseServerTransportProvider in
+  1.0.0 hardcodes `Access-Control-Allow-Origin: *`; fixed in 1.0.1 / 1.1.1 / 0.18.3.
+  We deliberately do NOT upgrade. See docs/CVE-2026-34237-report.md and ../../SECURITY.md.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.4.2</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.meridian.ci</groupId>
+  <artifactId>build-assistant-mcp</artifactId>
+  <version>2.3.0</version>
+  <name>Meridian CI Build Assistant</name>
+  <description>Internal CI / build assistant exposed to developer agents over the Model Context Protocol</description>
+
+  <properties>
+    <java.version>17</java.version>
+    <!-- VULNERABLE by design: 1.0.0 hardcodes ACAO:* in the HTTP/SSE transport (CVE-2026-34237). -->
+    <mcp.sdk.version>1.0.0</mcp.sdk.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!-- MCP Java SDK core (server + HTTP/SSE transport). Pinned to the affected 1.0.0 release. -->
+    <dependency>
+      <groupId>io.modelcontextprotocol.sdk</groupId>
+      <artifactId>mcp-core</artifactId>
+      <version>${mcp.sdk.version}</version>
+    </dependency>
+    <!-- Jackson 2 binding for the SDK's McpJsonMapper (reuses Spring Boot's ObjectMapper). -->
+    <dependency>
+      <groupId>io.modelcontextprotocol.sdk</groupId>
+      <artifactId>mcp-json-jackson2</artifactId>
+      <version>${mcp.sdk.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>build-assistant-mcp</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

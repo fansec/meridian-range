@@ -1,0 +1,20 @@
+{
+  "name": "attacker-collector",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Exfil sink for the Meridian Range. LAB-ONLY, labnet-internal, benign canary only.",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  }
+}

@@ -1,0 +1,51 @@
+name: Bug report
+description: Something in the range or its tooling behaves incorrectly.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: the MCP servers under `servers/` are **insecure by design** and pinned to
+        affected releases deliberately. Permissive CORS, a disclosed session id, rebind protection
+        off, and the `run_command` tool are the subject under study, not oversights. Report
+        anything that breaks the range's own containment **privately** instead.
+
+  - type: checkboxes
+    id: not-by-design
+    attributes:
+      label: Confirmation
+      options:
+        - label: This is not one of the intentionally-vulnerable behaviours the range studies on purpose.
+          required: true
+        - label: This is not a containment or secret-exposure problem (those go through private reporting).
+          required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The exact command, including the module and tier, plus its output.
+      placeholder: |
+        MERIDIAN_ON_VM=1 ./range up 01 --tier sealed
+        MERIDIAN_ON_VM=1 ./range run 01
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: where
+    attributes:
+      label: Where it ran
+      description: >-
+        Isolated VM or authoring host, plus OS and Docker version. If it was the VM, say how the host
+        is identified as one (the /etc/meridian-vm marker file, or MERIDIAN_ON_VM=1).
+    validations:
+      required: true

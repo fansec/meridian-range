@@ -1,0 +1,60 @@
+# Module 02 attacker side (opt-in, attacker host only). Rebind page + exfil sink, no tools.
+# The rebind domain resolves HERE first; the operator then flips the A record to the victim host.
+# Isolated lab LAN only. See ../README.md and SECURITY.md rule 1a.
+#   MERIDIAN_ATTACKER_HOST=1 ./range up 02 --tier split-host --side attacker
+#
+# Both sides publish the SAME port on DIFFERENT hosts (a rebind keeps scheme+host+port identical and
+# changes only the resolved IP). That is why module 02 has no single-host tier, and why no reverse
+# proxy is used: the flip must happen in the DNS answer, not in a proxy backend.
+#
+# STANDALONE (declares its own `name:`).
+
+name: meridian-range-02-attacker
+
+networks:
+  edge:
+    driver: bridge
+
+volumes:
+  lablog:
+
+services:
+  rebind-web:                    # serves rebind.html - the INITIAL answer
+    image: nginx:alpine
+    container_name: rebind-web
+    volumes:
+      - ./engine/attacker/web:/usr/share/nginx/html:ro
+    ports:
+      - "${REBIND_HTTP_PORT:-8080}:80"
+    networks:
+      edge: {}
+
+  attacker-collector:
+    build:
+      context: .
+      dockerfile: engine/attacker/collector/Dockerfile
+    container_name: attacker-collector
+    environment:
+      - PORT=9000
+      - LAB_LOG_FILE=/var/log/lab/lab.ndjson
+    volumes:
+      - lablog:/var/log/lab
+    ports:
+      - "${COLLECTOR_PORT:-9000}:9000"
+    networks:
+      edge: {}
+
+  # Optional bundled DNS, only for operators with no existing lab Technitium. This repo ships no zone
+  # data and never modifies external DNS: you create the short-TTL record and flip it yourself.
+  rebind-dns:
+    image: technitium/dns-server:latest    # (verify tag on the VM)
+    container_name: rebind-dns
+    profiles: ["bundled-dns"]              # opt-in only; `range up` does not start it
+    environment:
+      - DNS_SERVER_DOMAIN=${DNS_SERVER_DOMAIN:-rebind-dns.lab.consulereit.nl}
+    ports:
+      - "${DNS_BIND:-0.0.0.0}:53:53/udp"
+      - "${DNS_BIND:-0.0.0.0}:53:53/tcp"
+      - "${DNS_ADMIN_BIND:-0.0.0.0}:5380:5380/tcp"
+    networks:
+      edge: {}

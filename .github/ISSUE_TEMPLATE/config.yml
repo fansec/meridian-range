@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  # The canonical remote is a private, self-hosted Forgejo instance, so there is no public URL to
+  # point at here. Both entries deliberately reference files in the repository instead of a host:
+  # naming the real instance would put lab infrastructure in a published file.
+  - name: Security problem
+    url: https://example.invalid/report-privately
+    about: >-
+      Report privately to the maintainer, not as an issue. Note that the servers under servers/ are
+      insecure BY DESIGN and pinned to affected releases on purpose, so the vulnerable behaviour
+      itself is not a bug here.
+  - name: How the range works
+    url: https://example.invalid/see-the-docs
+    about: >-
+      Start with the top-level README and docs/getting-started.md: the module layout, the `./range`
+      subcommands, and the checklist for adding a module (one directory under modules/, scaffolded
+      with `./range new`).

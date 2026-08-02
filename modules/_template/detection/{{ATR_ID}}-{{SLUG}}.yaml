@@ -1,0 +1,54 @@
+# ATR rule for module {{ID}}. The id must match this filename; `range check` enforces it and prints
+# the next free id. Schema and closed vocabularies are validated by `range check`; the logic is
+# validated by `range detect-test {{ID}}` against the test_cases at the bottom, offline.
+id: {{ATR_ID}}
+title: "CHANGEME - what fires, in one line"
+status: experimental              # experimental | test | stable
+severity: medium                  # low | medium | high | critical
+description: >
+  What makes this signal anomalous, and why the condition below is the discriminator rather than a
+  proxy for it. Name the module. Crucially: state where the verdict is DERIVED. A detection must
+  never key on a field the vulnerable application computed about its own compromise, because in the
+  real world the SOC does not control that application and could not trust the answer.
+author: "Meridian Range"
+date: "{{ATR_DATE}}"
+tags:
+  category: CHANGEME
+  scan_target: mcp
+
+# The telemetry this rule reads, which must be SOC-owned rather than app-asserted.
+agent_source:
+  type: http_access_log
+telemetry_contract: "docs/telemetry-contract.md"
+
+detection:
+  condition: all                  # all | any
+  conditions:
+    - field: event.dataset
+      operator: exact             # exact | regex
+      value: "mcp.access"
+    # Add the discriminating condition(s) here.
+
+response:
+  actions: [alert]
+
+references:
+  # Every id here must also appear in ../module.yml; `range check` cross-checks it, because the
+  # manifest is the source of truth and a rule may not introduce a claim of its own.
+  owasp_llm: []
+  owasp_asi: []
+  cwe: []
+  cve: []
+
+# The rule's unit tests, and the reason this format is worth exporting: a detection that ships
+# without the inputs it was validated against cannot be re-verified by whoever receives it.
+# At least one of each is required.
+test_cases:
+  true_positives:
+    - input:
+        { event.dataset: "mcp.access" }
+      expected: trigger
+  true_negatives:
+    - input:
+        { event.dataset: "something.else" }
+      expected: no_trigger

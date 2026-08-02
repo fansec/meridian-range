@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 726" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" role="img" aria-label="CVE-2026-34237 security architecture and trust boundaries">
+  <title>CVE-2026-34237 - security architecture and trust boundaries</title>
+
+  <!-- self-contained light card: reads on light or dark backgrounds -->
+  <rect x="0" y="0" width="980" height="726" rx="14" fill="#f6f8fa"/>
+  <rect x="0.5" y="0.5" width="979" height="725" rx="14" fill="none" stroke="#d0d7de"/>
+
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6e7781"/>
+    </marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#cf222e"/>
+    </marker>
+  </defs>
+
+  <text x="30" y="40" font-size="20" font-weight="700" fill="#1f2328">Wildcard CORS session hijack over MCP HTTP/SSE</text>
+  <text x="30" y="61" font-size="13" fill="#57606a">CVE-2026-34237 (CWE-942) . MCP Java SDK mcp-core 1.0.0 . component architecture and trust boundaries</text>
+
+  <!-- ============ trust boundary A: attacker ============ -->
+  <rect x="26" y="92" width="236" height="470" rx="12" fill="#fff5f5" stroke="#cf222e" stroke-width="1.4" stroke-dasharray="6 5"/>
+  <text x="44" y="116" font-size="12.5" font-weight="700" fill="#cf222e">Attacker infrastructure</text>
+
+  <rect x="46" y="140" width="196" height="92" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="144" y="168" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">attacker-web</text>
+  <text x="144" y="188" font-size="11.5" fill="#57606a" text-anchor="middle">attacker.lab.consulereit.nl</text>
+  <text x="144" y="206" font-size="11" fill="#57606a" text-anchor="middle">drive-by page dressed as a</text>
+  <text x="144" y="221" font-size="11" fill="#57606a" text-anchor="middle">"build #4209 failed" link</text>
+
+  <rect x="46" y="440" width="196" height="86" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="144" y="468" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">attacker-collector</text>
+  <text x="144" y="488" font-size="11.5" fill="#57606a" text-anchor="middle">exfil sink</text>
+  <text x="144" y="506" font-size="11" fill="#57606a" text-anchor="middle">benign canary only</text>
+
+  <!-- ============ trust boundary B: victim browser (SOP) ============ -->
+  <rect x="292" y="92" width="300" height="470" rx="12" fill="#fbfbff" stroke="#8250df" stroke-width="1.4" stroke-dasharray="6 5"/>
+  <text x="310" y="116" font-size="12.5" font-weight="700" fill="#6639ba">Victim browser . Same-Origin Policy</text>
+
+  <rect x="312" y="140" width="260" height="140" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="442" y="167" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Developer's browser</text>
+  <text x="442" y="186" font-size="11" fill="#57606a" text-anchor="middle">the victim opens the link in a tab</text>
+  <rect x="332" y="200" width="220" height="74" rx="8" fill="#fff5f5" stroke="#cf222e"/>
+  <text x="442" y="217" font-size="11.5" font-weight="600" fill="#cf222e" text-anchor="middle">tab @ Origin</text>
+  <text x="442" y="231" font-size="10" font-weight="600" fill="#cf222e" text-anchor="middle">https://attacker.lab.consulereit.nl</text>
+  <text x="442" y="250" font-size="10.5" fill="#57606a" text-anchor="middle">JS: EventSource read + text/plain</text>
+  <text x="442" y="264" font-size="10.5" fill="#57606a" text-anchor="middle">relay - both CORS-simple, no preflight</text>
+
+  <rect x="312" y="300" width="260" height="150" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="442" y="324" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle">Same-Origin Policy (the assumption)</text>
+  <text x="326" y="348" font-size="11" fill="#57606a">A page may SEND cross-origin requests but</text>
+  <text x="326" y="364" font-size="11" fill="#57606a">must not READ the response unless the server</text>
+  <text x="326" y="380" font-size="11" fill="#57606a">opts in with Access-Control-Allow-Origin.</text>
+  <text x="326" y="404" font-size="11" font-weight="600" fill="#cf222e">ACAO: * opts in for every Origin at once,</text>
+  <text x="326" y="420" font-size="11" font-weight="600" fill="#cf222e">so the SSE stream (and the session id it</text>
+  <text x="326" y="436" font-size="11" font-weight="600" fill="#cf222e">carries) becomes readable cross-origin.</text>
+
+  <!-- ============ trust boundary C: developer host / localhost ============ -->
+  <rect x="622" y="92" width="332" height="470" rx="12" fill="#fff5f5" stroke="#cf222e" stroke-width="1.6"/>
+  <text x="640" y="116" font-size="12.5" font-weight="700" fill="#cf222e">Developer host . "only localhost can reach it"</text>
+
+  <rect x="642" y="140" width="292" height="286" rx="10" fill="#ffffff" stroke="#cf222e" stroke-width="1.4"/>
+  <text x="788" y="166" font-size="13.5" font-weight="700" fill="#1f2328" text-anchor="middle">Meridian CI (buildbot-mcp)</text>
+  <text x="788" y="184" font-size="11" fill="#57606a" text-anchor="middle">Spring Boot 3.4 . MCP Java SDK mcp-core 1.0.0</text>
+
+  <rect x="662" y="198" width="252" height="86" rx="8" fill="#fff5f5" stroke="#cf222e"/>
+  <text x="788" y="220" font-size="12" font-weight="700" fill="#cf222e" text-anchor="middle">HTTP/SSE transport</text>
+  <text x="788" y="238" font-size="10.5" fill="#57606a" text-anchor="middle">HttpServletSseServerTransportProvider</text>
+  <text x="788" y="255" font-size="11" font-weight="600" fill="#cf222e" text-anchor="middle">sets Access-Control-Allow-Origin: *</text>
+  <text x="788" y="271" font-size="11" font-weight="600" fill="#cf222e" text-anchor="middle">discloses sessionId on `endpoint` event</text>
+
+  <rect x="662" y="298" width="252" height="52" rx="8" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="788" y="319" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="middle">MCP session (JSON-RPC 2.0)</text>
+  <text x="788" y="336" font-size="10.5" fill="#57606a" text-anchor="middle">list_builds . get_build_log . trigger_pipeline</text>
+
+  <rect x="662" y="362" width="252" height="50" rx="8" fill="#fff5f5" stroke="#cf222e"/>
+  <text x="788" y="382" font-size="12" font-weight="700" fill="#cf222e" text-anchor="middle">run_command (the capability)</text>
+  <text x="788" y="399" font-size="10.5" fill="#57606a" text-anchor="middle">ad-hoc build step, ungated</text>
+
+  <rect x="642" y="442" width="292" height="72" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="788" y="467" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle">shell execution</text>
+  <text x="788" y="486" font-size="10.5" fill="#1f2328" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">java -&gt; /bin/sh -c "id; hostname; echo LAB_CANARY"</text>
+  <text x="788" y="503" font-size="10.5" fill="#57606a" text-anchor="middle">benign proof-of-execution only</text>
+
+  <!-- ============ attack flow (numbered; described in the Attack path band below) ============ -->
+  <!-- 1: victim opens link (attacker-web -> browser tab) -->
+  <path d="M242 186 C 268 186, 286 220, 330 226" fill="none" stroke="#6e7781" stroke-width="1.5" marker-end="url(#a)"/>
+  <circle cx="272" cy="200" r="10" fill="#6e7781"/><text x="272" y="204" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+
+  <!-- 2: cross-origin GET /mcp/sse (tab -> transport) -->
+  <path d="M552 218 C 604 210, 616 232, 660 236" fill="none" stroke="#cf222e" stroke-width="1.9" marker-end="url(#ar)"/>
+  <circle cx="607" cy="203" r="10" fill="#cf222e"/><text x="607" y="207" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+
+  <!-- 3: ACAO:* + session id back (transport -> tab) -->
+  <path d="M660 266 C 616 278, 606 250, 554 248" fill="none" stroke="#cf222e" stroke-width="1.9" stroke-dasharray="6 3" marker-end="url(#ar)"/>
+  <circle cx="607" cy="287" r="10" fill="#cf222e"/><text x="607" y="291" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+
+  <!-- 4: relay tools/call over hijacked session (tab -> run_command) -->
+  <path d="M556 250 C 604 320, 612 384, 660 386" fill="none" stroke="#cf222e" stroke-width="1.9" marker-end="url(#ar)"/>
+  <circle cx="609" cy="352" r="10" fill="#cf222e"/><text x="609" y="356" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+
+  <!-- 5: exec -> canary -> exfil to collector -->
+  <path d="M662 492 C 470 528, 300 528, 242 500" fill="none" stroke="#cf222e" stroke-width="1.9" stroke-dasharray="6 3" marker-end="url(#ar)"/>
+  <circle cx="452" cy="526" r="10" fill="#cf222e"/><text x="452" y="530" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">5</text>
+
+  <!-- ============ attack path band ============ -->
+  <rect x="26" y="580" width="928" height="86" rx="12" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="44" y="602" font-size="12.5" font-weight="700" fill="#1f2328">Attack path</text>
+  <text x="152" y="602" font-size="11.5" fill="#57606a"><tspan fill="#cf222e" font-weight="700">1</tspan>  victim opens the attacker link in a browser tab</text>
+  <text x="152" y="624" font-size="11.5" fill="#57606a"><tspan fill="#cf222e" font-weight="700">2</tspan>  tab sends cross-origin <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace">GET /mcp/sse</tspan> (CORS-simple read)</text>
+  <text x="152" y="646" font-size="11.5" fill="#57606a"><tspan fill="#cf222e" font-weight="700">3</tspan>  server returns <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace">ACAO:*</tspan>; endpoint event leaks the session id</text>
+  <text x="566" y="624" font-size="11.5" fill="#57606a"><tspan fill="#cf222e" font-weight="700">4</tspan>  tab relays <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace">tools/call run_command</tspan> over the session</text>
+  <text x="566" y="646" font-size="11.5" fill="#57606a"><tspan fill="#cf222e" font-weight="700">5</tspan>  benign canary output is exfiltrated to the collector</text>
+
+  <!-- ============ footer: lab framing + legend ============ -->
+  <text x="30" y="694" font-size="11" fill="#8250df" font-weight="600">Runs only on the isolated lab VM . labnet internal: true (no egress) . no published ports . benign canary only</text>
+
+  <g transform="translate(628,676)">
+    <rect x="0" y="0" width="326" height="40" rx="9" fill="#ffffff" stroke="#d0d7de"/>
+    <line x1="14" y1="14" x2="40" y2="14" stroke="#cf222e" stroke-width="1.9" marker-end="url(#ar)"/>
+    <text x="48" y="18" font-size="10.5" fill="#57606a">attack path</text>
+    <line x1="150" y1="14" x2="176" y2="14" stroke="#6e7781" stroke-width="1.5" marker-end="url(#a)"/>
+    <text x="184" y="18" font-size="10.5" fill="#57606a">victim action</text>
+    <rect x="14" y="26" width="13" height="10" rx="2" fill="none" stroke="#8250df" stroke-dasharray="3 2"/>
+    <text x="34" y="35" font-size="10.5" fill="#57606a">trust boundary</text>
+    <rect x="150" y="26" width="13" height="10" rx="2" fill="#fff5f5" stroke="#cf222e"/>
+    <text x="170" y="35" font-size="10.5" fill="#57606a">insecure by design</text>
+  </g>
+</svg>

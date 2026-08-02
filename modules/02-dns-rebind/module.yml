@@ -1,0 +1,65 @@
+# Module 02 manifest. See modules/01-cors-session-hijack/module.yml for the path conventions.
+version: 1
+
+id: "02"
+slug: "dns-rebind"
+name: "DNS Rebinding"
+status: "active"                          # VM-verified: see `verified:` below
+track: "A"                                # A=transport/session/auth
+
+owasp: ["LLM06"]                          # Excessive Agency
+asi:   ["ASI02", "ASI03"]                 # OWASP Agentic Security Initiative (2026)
+mcp:   ["MCP07"]                          # OWASP MCP Top 10 (beta v0.1): Insufficient AuthN/AuthZ (verify)
+atlas: []                                 # MITRE ATLAS techniques, each (verify) until checked
+cve:
+  # cvss 7.6 is the CVSS 4.0 score (GitHub); NVD's CVSS 3.1 for the same CVE is 8.1. Verified against
+  # NVD + GHSA-w48q-cv73-mx4w on 2026-08-02. Affected < 1.24.0, fixed 1.24.0 - but the insecure default
+  # persists in 1.29.0, which is what this lab actually runs (see the server: note below).
+  - { id: "CVE-2025-66414", cvss: 7.6, cvss_version: "4.0", cvss_3_1: 8.1, role: "anchor" }
+  # Related work only: different product (MCP Inspector < 0.14.1), not used by this module's chain and
+  # not a precondition for it. Kept for the catalogue, deliberately NOT scored into this module.
+  - { id: "CVE-2025-49596", cvss: 9.4, role: "related" }
+cwe:   ["CWE-1188", "CWE-346", "CWE-78"]  # 1188 insecure-default (anchor) + 346 origin-validation (ATR-70018); 78 exec
+
+server:         "servers/ts-vuln"         # TypeScript "buildbot-mcp"; pins @modelcontextprotocol/sdk ^1.12.0 (anti-rebind OFF)
+server_service: "mcp-vuln"
+transport:      "streamable-http"         # the Host header must be forged verbatim, see the scenario
+harness_mode:   "deterministic"
+
+# The TS SDK exposes the control as a constructor flag rather than a version bump, so the matrix here
+# varies the SERVER FLAG, not the dependency. `enable_dns_rebinding_protection` is read by the server.
+matrix:
+  build_arg: null
+  env_var: "ENABLE_DNS_REBIND_PROTECTION"
+  versions:
+    - { version: "0", expect: "reproduce" }   # the shipped default: protection OFF (CVE-2025-66414)
+    - { version: "1", expect: "no-repro" }    # the mitigation: Host allow-list enforced
+
+probe:
+  safe_checks:
+    - id: "host-header-unvalidated"
+      description: "The MCP endpoint issues a session to a request bearing a foreign Host header"
+
+topology:
+  # No single-host tier: both sides publish the SAME port, which one host cannot bind twice.
+  # No Traefik: the flip must happen in the DNS answer, not in a proxy backend.
+  tiers: ["sealed", "split-host"]
+  traefik: false
+  roles:                                  # one name, two backends over time, which IS the attack
+    - { role: "rebind",    side: "attacker", service: "rebind-web",         port: 8080, flips_to: "victim" }
+    - { role: "rebind",    side: "victim",   service: "mcp-vuln",           port: 8080 }
+    - { role: "collector", side: "attacker", service: "attacker-collector", port: 9000 }
+
+verified: "2026-08-02"                    # VM-verified on @modelcontextprotocol/sdk 1.29.0 (read from the built image,
+                                          # NOT the ^1.12.0 declared in package.json): rebind protection still off by
+                                          # default past the 1.24.0 fix, foreign Host accepted, ATTACK-OK
+                                          # `range matrix 02` agreed on both cells: flag 0 reproduces, flag 1 does not
+blog_url: null
+
+description: >
+  DNS rebinding defeats the Origin control that stops module 01. The attacker rebinds their own
+  domain from the attacker page to the victim MCP, so the browser's post-rebind request is
+  same-origin (no cross-origin Origin) yet the Host header names the rebind domain. The TypeScript
+  MCP SDK ships DNS-rebinding protection OFF by default (CVE-2025-66414, CWE-1188), so a Host
+  allow-list is the control that holds. Requires DNS (the two-host opt-in split-host tier, using the
+  existing lab Technitium); module 01 does not. See this module's README.

@@ -1,0 +1,46 @@
+# Module 01 attacker side (opt-in, sanctioned attacker host only). Static page + exfil sink, neither
+# capability-bearing. This host never runs a service with an exec/file/network tool (SECURITY.md rule
+# 1a). Isolated lab LAN only.
+#   MERIDIAN_ATTACKER_HOST=1 ./range up 01 --tier split-host --side attacker
+#
+# STANDALONE (it declares its own `name:`): the attacker host carries no sealed base lab, so this file
+# is brought up on its own rather than as an overlay.
+
+name: meridian-range-01-attacker
+
+networks:
+  edge:
+    driver: bridge
+
+volumes:
+  lablog:        # the collector writes EXFIL lines here; a capture rig can tail them
+
+services:
+  attacker-web:                  # serves lan.html; targets come from ?mcp= / ?collector=
+    image: nginx:alpine
+    container_name: attacker-web
+    volumes:
+      - ./engine/attacker/web:/usr/share/nginx/html:ro
+    ports:
+      - "${WEB_PORT:-1337}:80"
+    networks:
+      edge: {}
+
+  attacker-collector:            # permissive CORS by design: it must accept the cross-origin POST
+    build:
+      context: .
+      dockerfile: engine/attacker/collector/Dockerfile
+    container_name: attacker-collector
+    environment:
+      - PORT=9000
+      - LAB_LOG_FILE=/var/log/lab/lab.ndjson
+    volumes:
+      - lablog:/var/log/lab
+    ports:
+      - "${COLLECTOR_PORT:-9000}:9000"
+    networks:
+      edge: {}
+
+  # Recording from this side shows only the collector's EXFIL line: the victim MCP writes its /mcp
+  # request telemetry on the OTHER host, so the request table stays empty. Record module 01 from the
+  # victim side instead.

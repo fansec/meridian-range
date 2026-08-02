@@ -1,0 +1,10 @@
+# Ruff config for the offline [dev] Python helpers under engine/cli/.
+# `ruff check` (lint) is the enforced gate; `ruff format` is available but advisory, so it does not
+# reflow the deliberately compact, hand-aligned helpers. Width matches the repo's TS printWidth (120).
+line-length = 120
+target-version = "py39"
+
+[lint]
+# Correctness-focused: pycodestyle errors, pyflakes (unused imports / undefined names), bugbear.
+# Import-ordering (I) and formatting are left to the advisory `ruff format`, not enforced here.
+select = ["E", "F", "B"]

@@ -1,0 +1,63 @@
+id: ATR-2026-70018
+title: "MCP request bearing a foreign Host that is not cross-origin (DNS-rebinding)"
+status: experimental
+severity: high
+description: >
+  DNS rebinding defeats the Origin fix for module 01: the attacker rebinds their own domain to the
+  victim's loopback, so the browser request is *same-origin* - it carries NO cross-origin Origin for
+  ATR-2026-70001 to see - yet the Host header still names the attacker's rebind domain. A local MCP
+  server should only ever see a loopback / known-service Host; a Host outside the known-good set on the
+  /mcp endpoint is the rebind signal. Alert when a request's Host is foreign (precomputed `foreign_host`,
+  the server's own anti-rebind decision, the SDK's enableDnsRebindingProtection input). This is why
+  validating Origin alone is insufficient. Meridian Range module 02 (the DNS-rebinding attack; module 01
+  is CORS-only and needs no DNS).
+author: "Meridian Range"
+date: "2026/07/23"
+tags:
+  category: transport-host-spoof
+  scan_target: mcp
+agent_source:
+  type: mcp_exchange
+detection:
+  condition: all
+  conditions:
+    - field: evt
+      operator: exact
+      value: "http.request"
+    - field: foreign_host          # precomputed: Host not in the known-good allow-list (cf. module 11 `escaped`)
+      operator: exact
+      value: "true"
+response:
+  actions: [alert, block_request]
+references:
+  owasp_asi: [ASI02, ASI03]
+  safe_mcp: ["(DNS-rebind / transport host-spoof - verify)"]
+  owasp_llm: [LLM06]
+  cwe: [CWE-346, CWE-1188]         # origin-validation error + insecure default (per repo mapping - verify)
+  cve: [CVE-2025-66414]            # TypeScript SDK rebind default (companion: CVE-2025-66416 Python)
+test_cases:
+  true_positives:
+    # rebind initialize: foreign Host (the rebind domain), NO Origin (70001 stays silent - that is the point)
+    - input: { evt: "http.request", rpc_method: "initialize", origin: null, host: "rebind.lab.consulereit.nl", foreign_host: "true", status: 200 }
+      expected: trigger
+    # capability call over the rebound session
+    - input: { evt: "http.request", rpc_method: "tools/call", tool: "run_command", origin: null, host: "rebind.lab.consulereit.nl", foreign_host: "true" }
+      expected: trigger
+    # a different foreign rebind domain
+    - input: { evt: "http.request", rpc_method: "initialize", host: "internal.corp.attacker.test", foreign_host: "true" }
+      expected: trigger
+    # the LIVE browser shape: a real browser DOES send Origin on a POST, and after the rebind it equals
+    # the Host. Captured from the recorded run, 2026-08-02. A rule keyed on "no Origin header" misses
+    # this row, which is the whole reason it is pinned here as a test case.
+    - input: { evt: "http.request", rpc_method: "tools/call", tool: "run_command", origin: "http://rebind.lab.consulereit.nl:8080", host: "rebind.lab.consulereit.nl:8080", foreign_host: "true", status: 200 }
+      expected: trigger
+  true_negatives:
+    # legitimate local client - known-service Host, no Origin
+    - input: { evt: "http.request", rpc_method: "tools/call", tool: "run_command", host: "mcp.lab.consulereit.nl", foreign_host: "false" }
+      expected: no_trigger
+    # loopback Host
+    - input: { evt: "http.request", rpc_method: "initialize", host: "localhost:8080", foreign_host: "false" }
+      expected: no_trigger
+    # the plain wildcard-CORS hijack (foreign Origin, legit Host) - module 01's job (ATR-2026-70001), not this rule
+    - input: { evt: "http.request", rpc_method: "tools/call", origin: "https://attacker.lab.consulereit.nl", host: "mcp.lab.consulereit.nl", foreign_host: "false" }
+      expected: no_trigger
