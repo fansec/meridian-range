@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1280 640" width="1280" height="640" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" role="img" aria-label="Meridian Range: a defensive range for MCP and AI-agent attacks. Reproduce a published CVE, then ship the detection. Two VM-verified modules, ATR rules exporting to Sigma and Elastic.">
+  <title>Meridian Range - social preview card</title>
+
+  <!-- Full-bleed light card. Unlike the diagrams in this directory it carries no rounded corners:
+       the card IS the whole image, and a link unfurl crops it to a rectangle, so rounded corners
+       would show the host page through them. -->
+  <rect x="0" y="0" width="1280" height="640" fill="#f6f8fa"/>
+  <rect x="0.5" y="0.5" width="1279" height="639" fill="none" stroke="#d0d7de"/>
+
+  <!-- the project logo, transparent and monochrome, composited onto the light card -->
+  <image href="./logo.png" xlink:href="./logo.png" x="72" y="124" width="350" height="396"/>
+
+  <!-- headline -->
+  <text x="478" y="204" font-size="50" font-weight="700" fill="#1f2328">A defensive range for</text>
+  <text x="478" y="262" font-size="50" font-weight="700" fill="#1f2328">MCP and AI-agent attacks</text>
+
+  <!-- the thesis, in one line -->
+  <text x="478" y="320" font-size="27" fill="#57606a">Reproduce a published CVE, then ship the detection.</text>
+
+  <!-- state-of-the-range chips, coloured from the same Primer palette as the README badges -->
+  <g font-size="20" font-weight="600">
+    <rect x="478" y="370" width="271" height="42" rx="21" fill="#dafbe1" stroke="#1a7f37"/>
+    <text x="613.5" y="397" fill="#1a7f37" text-anchor="middle">2 VM-verified modules</text>
+
+    <rect x="767" y="370" width="282" height="42" rx="21" fill="#ddf4ff" stroke="#0969da"/>
+    <text x="908" y="397" fill="#0969da" text-anchor="middle">ATR to Sigma / Elastic</text>
+  </g>
+
+  <text x="478" y="484" font-size="22" fill="#57606a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">github.com/fansec/meridian-range</text>
+</svg>

@@ -30,6 +30,32 @@ self-contained directory. Only range-wide artwork lives here.
   screencast and has no business in a clone. Cropped to its content and quantised to a 256-colour
   palette it is 80 KB, and at the 340px it is displayed at, that is indistinguishable from the full
   RGBA original. Re-check that comparison at display size, not at full size, if the artwork changes.
+- [`social-card.svg`](./social-card.svg) - source for the GitHub **social preview**, the Open Graph
+  card that X, LinkedIn, Slack, Discord and Bluesky render when the repo URL is pasted. Without one,
+  GitHub falls back to a generic auto-built card. It is 1280x640 (2:1, GitHub's recommended size), and
+  it is full-bleed with square corners: unlike the diagrams here it carries no rounded corners, because
+  the card *is* the whole image and a link unfurl crops it to a rectangle, so rounded corners would show
+  the host page through them. Palette and font stacks are the same Primer set as the diagrams.
+
+  It references [`logo.png`](./logo.png) relatively rather than inlining it, so it stays diff-able. That
+  means it must be rendered as a **top-level document**, not via `<img>`, which cannot load external
+  refs. To re-render after an edit:
+
+  ```
+  google-chrome --headless --force-device-scale-factor=2 --window-size=1280,640 \
+      --screenshot=/tmp/card-2x.png media/social-card.svg
+  convert /tmp/card-2x.png -resize 1280x640 -strip -colors 256 media/social-card.png
+  ```
+
+- [`social-card.png`](./social-card.png) - the render of the above, 116 KB, uploaded by hand under
+  repo Settings, General, Social preview (there is no REST API for it, so it cannot be scripted).
+  **This is not a second instance of the logo's raster exception:** its vector source sits next to it
+  and is committed, so it re-typesets by editing a file. Rendered at 2x and downscaled for text
+  antialiasing, then quantised to a 256-colour palette; that costs 0.6% RMSE against the full-colour
+  render, which is invisible at any display size, and keeps it far under GitHub's 1 MB ceiling.
+
+  Re-render it whenever the module count changes: the green chip claims a number.
+
 - [`engine-design.svg`](./engine-design.svg) - the design view embedded in the top-level
   [`README.md`](../README.md): how a module is authored, what shared engine runs it, the two lanes of
   the reproduce-to-detect loop, and what is in the range today.
