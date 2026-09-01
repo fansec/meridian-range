@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "tsx": "^4.19.0",
+    "tsx": "^4.23.12",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
