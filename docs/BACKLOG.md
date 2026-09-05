@@ -1,8 +1,8 @@
 # Meridian Range - backlog
 
-Catalogued attacks not yet built in this repo. **Module 01 (CORS session hijack) is shipped and
-VM-verified; module 02 (DNS rebinding) is authored and testable offline, pending a VM run under its new
-module id.** Everything below is design-only: the writeups live in the research vault
+Catalogued attacks not yet built in this repo. **Modules 01 (CORS session hijack) and 02 (DNS
+rebinding) are shipped and VM-verified. Module 03 (cross-client elicitation hijack) is authored and
+pending its VM run.** Everything below is design-only: the writeups live in the research vault
 (`../mcp-research-brain/03-modules/`); nothing here has a server, scenario, detection, or VM run in this
 repo yet.
 

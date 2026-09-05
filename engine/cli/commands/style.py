@@ -2,7 +2,8 @@
 
 Long dashes read as AI-generated, so the house rule bans them everywhere: prose, comments, commit
 messages, PR text. This scans git-tracked files, skipping vendored, generated and verbatim-capture
-content, and prints file:line for every offending character.
+content, and prints file:line for every offending character. Untracked authored files are included so
+a newly scaffolded module cannot bypass the check before its first commit.
 """
 from __future__ import annotations
 
@@ -16,8 +17,13 @@ SKIP_SUFFIXES = ("package-lock.json",)
 SKIP_PARTS = ("/evidence/", "/media/", "node_modules/")
 
 
-def tracked_files() -> list[str]:
-    out = subprocess.run(["git", "ls-files"], check=True, capture_output=True, text=True).stdout
+def authored_files() -> list[str]:
+    out = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
     files = []
     for f in out.splitlines():
         if f.endswith(SKIP_SUFFIXES):
@@ -30,7 +36,7 @@ def tracked_files() -> list[str]:
 
 def cmd_style(_args) -> int:
     hits: list[str] = []
-    for path in tracked_files():
+    for path in authored_files():
         try:
             with open(path, encoding="utf-8") as fh:
                 for lineno, line in enumerate(fh, 1):

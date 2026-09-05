@@ -7,8 +7,8 @@
  *   range probe --target <url> ...  read-only checks  (this file, mode "probe")
  *
  * Scenarios are DISCOVERED, not registered. There is no map to edit here: the runner resolves a
- * module directory under modules/, imports its scenario.ts, and dispatches. Adding module 03 means
- * adding modules/03-<slug>/ and touching nothing in the engine.
+ * module directory under modules/, imports its scenario.ts, and dispatches. Adding a module means
+ * adding modules/<NN>-<slug>/ and touching nothing in the engine.
  */
 import path from "node:path";
 import { loadModule, moduleDir, resolveModuleDir } from "./module.js";

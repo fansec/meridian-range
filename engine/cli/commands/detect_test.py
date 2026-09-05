@@ -2,12 +2,14 @@
 
 The detection-side regression gate that needs no VM. An ATR rule declares `detection.conditions` plus
 `test_cases` (true_positives / true_negatives); this evaluates the conditions against each input and
-asserts the rule fires exactly when it should. It lets the authoring host verify detection LOGIC long
-before the live-signal half is confirmed on the VM.
+asserts the rule fires exactly when it should. Correlation rules use an `events` list representing one
+declared evaluation window. It lets the authoring host verify detection LOGIC long before the live-signal
+half is confirmed on the VM.
 
 Supported operators: `exact` (stringwise equality), `regex` (re.search). A field that is absent or
 null never matches, which is what makes an `origin: null` negative meaningful. condition `all` means
-every sub-condition, `any` means at least one.
+every sub-condition, `any` means at least one. The supported correlation is `value_count`: group matching
+events, then require a minimum number of distinct values in one field.
 """
 from __future__ import annotations
 
@@ -41,7 +43,7 @@ def eval_condition(cond: dict, inp: dict) -> bool:
     raise ValueError(f"unsupported operator: {op!r}")
 
 
-def rule_fires(detection: dict, inp: dict) -> bool:
+def _event_matches(detection: dict, inp: dict) -> bool:
     logic = detection.get("condition", "all")
     results = [eval_condition(c, inp) for c in (detection.get("conditions") or [])]
     if logic == "all":
@@ -49,6 +51,30 @@ def rule_fires(detection: dict, inp: dict) -> bool:
     if logic == "any":
         return any(results)
     raise ValueError(f"unsupported condition logic: {logic!r}")
+
+
+def rule_fires(detection: dict, inp: dict | list[dict]) -> bool:
+    """Evaluate a single event, or an event collection for a correlation rule."""
+    events = inp if isinstance(inp, list) else [inp]
+    matched = [event for event in events if _event_matches(detection, event)]
+    correlation = detection.get("correlation")
+    if not correlation:
+        return bool(matched)
+    if correlation.get("type") != "value_count":
+        raise ValueError(f"unsupported correlation type: {correlation.get('type')!r}")
+
+    group_fields = correlation.get("group_by") or []
+    value_field = correlation.get("field")
+    minimum = int(correlation.get("min_distinct", 2))
+    groups: dict[tuple[str, ...], set[str]] = {}
+    for event in matched:
+        group = tuple(_val(event.get(field)) or "" for field in group_fields)
+        if not group or any(value == "" for value in group):
+            continue
+        value = _val(event.get(value_field))
+        if value is not None:
+            groups.setdefault(group, set()).add(value)
+    return any(len(values) >= minimum for values in groups.values())
 
 
 def run_file(path) -> tuple[int, int]:
@@ -59,7 +85,7 @@ def run_file(path) -> tuple[int, int]:
     cases = [(tc, True) for tc in (tests.get("true_positives") or [])]
     cases += [(tc, False) for tc in (tests.get("true_negatives") or [])]
     for tc, want_fire in cases:
-        inp = tc.get("input", {})
+        inp = tc.get("events") if "events" in tc else tc.get("input", {})
         got_fire = rule_fires(detection, inp)
         if got_fire == want_fire:
             passed += 1

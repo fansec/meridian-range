@@ -4,9 +4,9 @@ This is the other half of "keeping the structure" (the enforcing half is `range 
 plus a validator holds a convention; a paragraph in a contributing guide does not, which is how this
 repo previously ended up with a checklist restated in four places and obeyed differently each time.
 
-  range new 03 tool-poisoning --name "Tool Description Poisoning"
+  range new 04 tool-poisoning --name "Tool Description Poisoning"
 
-creates modules/03-tool-poisoning/ with every conventional file already in place and the identity
+creates modules/04-tool-poisoning/ with every conventional file already in place and the identity
 fields filled in, so the only thing left to write is the attack and its detection.
 """
 from __future__ import annotations

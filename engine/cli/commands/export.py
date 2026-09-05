@@ -60,8 +60,9 @@ def _condition_to_sigma(detection: dict) -> tuple[dict, str]:
     return selections, joiner.join(names) if names else "false"
 
 
-def to_sigma(m: dict, doc: dict) -> dict:
-    selections, condition = _condition_to_sigma(doc.get("detection", {}) or {})
+def _sigma_rule(m: dict, doc: dict) -> dict:
+    detection = doc.get("detection", {}) or {}
+    selections, condition = _condition_to_sigma(detection)
     refs = doc.get("references", {}) or {}
     tags = []
     for cve in refs.get("cve", []) or []:
@@ -71,7 +72,7 @@ def to_sigma(m: dict, doc: dict) -> dict:
     for llm in refs.get("owasp_llm", []) or []:
         tags.append(f"owasp.{str(llm).lower()}")
 
-    rule = {
+    return {
         "title": doc.get("title"),
         "id": doc.get("id"),
         "status": doc.get("status", "experimental"),
@@ -88,12 +89,52 @@ def to_sigma(m: dict, doc: dict) -> dict:
         "x-meridian-tests": doc.get("test_cases", {}),
         "x-meridian-module": f"{m['id']}-{m['slug']}",
     }
-    return rule
+
+
+def to_sigma(m: dict, doc: dict) -> list[dict]:
+    """Return one Sigma rule, or a base rule plus a standard Sigma correlation meta-rule."""
+    base = _sigma_rule(m, doc)
+    correlation = (doc.get("detection", {}) or {}).get("correlation")
+    if not correlation:
+        return [base]
+
+    base_name = str(doc.get("id", "atr")).lower().replace("-", "_") + "_base"
+    base["title"] = f"{doc.get('title')} - matching access event"
+    base["name"] = base_name
+    base.pop("id", None)
+    base.pop("x-meridian-tests", None)
+
+    meta = {
+        "title": doc.get("title"),
+        "id": doc.get("id"),
+        "status": doc.get("status", "experimental"),
+        "description": (doc.get("description") or "").strip(),
+        "author": doc.get("author", "Meridian Range"),
+        "date": doc.get("date"),
+        "correlation": {
+            "type": "value_count",
+            "rules": [base_name],
+            "group-by": correlation.get("group_by") or [],
+            "timespan": correlation.get("within"),
+            "condition": {
+                "field": correlation.get("field"),
+                "gte": correlation.get("min_distinct"),
+            },
+        },
+        "falsepositives": doc.get(
+            "false_positives", ["Expected multi-principal workflow within the correlation window"]
+        ),
+        "level": doc.get("severity", "medium"),
+        "x-meridian-tests": doc.get("test_cases", {}),
+        "x-meridian-module": f"{m['id']}-{m['slug']}",
+    }
+    return [base, meta]
 
 
 def to_elastic(m: dict, doc: dict) -> dict:
-    selections, _condition = _condition_to_sigma(doc.get("detection", {}) or {})
-    logic = (doc.get("detection", {}) or {}).get("condition", "all")
+    detection = doc.get("detection", {}) or {}
+    selections, _condition = _condition_to_sigma(detection)
+    logic = detection.get("condition", "all")
     clauses = []
     for sel in selections.values():
         for field, value in sel.items():
@@ -106,7 +147,7 @@ def to_elastic(m: dict, doc: dict) -> dict:
     # Never let an imported rule fire outside the lab.
     query = f'({query}) and host.name : "{LAB_SCOPE_PLACEHOLDER}"'
 
-    return {
+    rule = {
         "rule_id": str(doc.get("id", "")).lower(),
         "name": doc.get("title"),
         "description": (doc.get("description") or "").strip(),
@@ -123,6 +164,22 @@ def to_elastic(m: dict, doc: dict) -> dict:
             "lab host before enabling, and never widen the scope to a shared or production host."
         ),
     }
+    correlation = detection.get("correlation")
+    if correlation:
+        rule.update({
+            "type": "threshold",
+            "threshold": {
+                "field": correlation.get("group_by") or [],
+                "value": 1,
+                "cardinality": [{
+                    "field": correlation.get("field"),
+                    "value": correlation.get("min_distinct"),
+                }],
+            },
+            "from": f"now-{correlation.get('within')}",
+            "interval": "1m",
+        })
+    return rule
 
 
 def cmd_export(args) -> int:
@@ -137,14 +194,14 @@ def cmd_export(args) -> int:
 
     if args.format == "sigma":
         for m, path, doc in docs:
-            rule = to_sigma(m, doc)
-            text = yaml.safe_dump(rule, sort_keys=False, allow_unicode=True)
+            rules = to_sigma(m, doc)
+            text = yaml.safe_dump_all(rules, sort_keys=False, allow_unicode=True, explicit_start=True)
             if out_dir:
                 target = out_dir / f"{path.stem}.sigma.yml"
                 target.write_text(text, encoding="utf-8")
                 print(f"wrote {target}")
             else:
-                print(f"---\n{text}", end="")
+                print(text, end="")
     else:
         lines = [json.dumps(to_elastic(m, doc), separators=(",", ":")) for m, _p, doc in docs]
         text = "\n".join(lines) + "\n"

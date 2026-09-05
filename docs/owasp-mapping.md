@@ -12,6 +12,7 @@ still beta, its mappings here are provisional.
 |---|--------|-----------|-----------|-----|-----|-------------------|--------|
 | 01 | CORS Session Hijack | LLM06 Excessive Agency | MCP07 Insufficient AuthN/AuthZ | ASI02, ASI03 | CWE-942, CWE-78, CWE-862, CWE-346 | CVE-2026-34237 (6.1) | shipped |
 | 02 | DNS Rebinding | LLM06 Excessive Agency | MCP07 Insufficient AuthN/AuthZ | ASI02, ASI03 | CWE-1188, CWE-346, CWE-78 | CVE-2025-66414 (7.6) | shipped |
+| 03 | Cross-Client Elicitation Hijack | LLM06 Excessive Agency | MCP07 (verify) Insufficient AuthN/AuthZ | _(verify)_ | CWE-362 | CVE-2026-25536 (7.1) | authored; pending VM verify |
 <!-- END GENERATED: owasp-matrix -->
 
 ## Module 01 (CORS session hijack) - notes
@@ -48,6 +49,19 @@ still beta, its mappings here are provisional.
   record is not sufficient). The live rebind is a two-VM opt-in deployment
   (`modules/02-dns-rebind/deploy/attacker.yml` + `victim.yml`) using the existing lab Technitium; see
   [`../modules/02-dns-rebind/README.md`](../modules/02-dns-rebind/README.md).
+
+## Module 03 (cross-client elicitation hijack) - notes
+
+- **CVE-2026-25536** (CWE-362, CVSS 3.1 score 7.1): the MCP TypeScript SDK allowed one `Server` or
+  `McpServer` to be connected to multiple transports through 1.25.3. Mutable protocol transport state
+  could route a server-to-client request to the wrong client. Version 1.26.0 rejects that reuse.
+- The LLM06 mapping covers the consequence: a user-confirmation mechanism grants a protected action
+  more agency than the initiating user approved. The provisional MCP07 mapping describes the missing
+  client and user binding. It remains `(verify)` while that beta taxonomy mapping is unverified.
+- Detection is a SOC-side value-count correlation, not an application verdict: group neutral
+  initiation, delivery, and answer events by `mcp.elicitation.id`, then alert when `user.id` has at
+  least two distinct values in five minutes. See
+  [`../modules/03-cross-client-elicitation-hijack/`](../modules/03-cross-client-elicitation-hijack/).
 
 Tool-description prompt injection ("tool poisoning") is **not currently catalogued** - it was drafted,
 then retired to the backlog. See [`BACKLOG.md`](./BACKLOG.md) (Track B) for its planned OWASP/CWE

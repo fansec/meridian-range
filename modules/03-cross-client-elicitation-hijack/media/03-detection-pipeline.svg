@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600" role="img" aria-labelledby="title desc">
+  <title id="title">Cross-principal elicitation detection pipeline</title>
+  <desc id="desc">Three raw audit facts for the same elicitation ID show Alice at initiation and Bob at delivery and answer. A distinct identity count of two triggers the rule. A normal single-user flow does not.</desc>
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0 L0 6 L9 3 z" fill="#70d9ff"/></marker><style>.bg{fill:#07111f}.h{font-family:Arial,sans-serif;font-size:27px;font-weight:700;fill:#f2f7ff}.t{font-family:Arial,sans-serif;font-size:17px;fill:#dceaf7}.s{font-family:Arial,sans-serif;font-size:14px;fill:#aac0d4}.event{fill:#102b3b;stroke:#58d4c0;stroke-width:2}.pipe{fill:#18263d;stroke:#4c6d91;stroke-width:2}.alert{fill:#3c1f31;stroke:#ff6e92;stroke-width:3}.quiet{fill:#193426;stroke:#6fe0a5;stroke-width:2}.line{stroke:#70d9ff;stroke-width:4;marker-end:url(#a)}</style></defs>
+  <rect class="bg" width="1200" height="600"/><text class="h" x="48" y="52">ATR-2026-70019: identity crossover is derived by the SOC</text>
+  <rect class="event" x="48" y="105" width="325" height="95" rx="14"/><text class="t" x="72" y="140">elicitation_initiated</text><text class="s" x="72" y="169">ID release-lab-03, user Alice</text>
+  <rect class="event" x="48" y="225" width="325" height="95" rx="14"/><text class="t" x="72" y="260">elicitation_delivered</text><text class="s" x="72" y="289">ID release-lab-03, user Bob</text>
+  <rect class="event" x="48" y="345" width="325" height="95" rx="14"/><text class="t" x="72" y="380">elicitation_answered</text><text class="s" x="72" y="409">ID release-lab-03, user Bob</text>
+  <rect class="pipe" x="475" y="175" width="305" height="205" rx="18"/><text class="h" x="512" y="218">Correlation</text><text class="t" x="512" y="258">group by elicitation ID</text><text class="t" x="512" y="294">count distinct user.id</text><text class="s" x="512" y="333">Alice + Bob = 2</text>
+  <path class="line" d="M373 152 C430 152 425 220 475 220"/><path class="line" d="M373 272 H475"/><path class="line" d="M373 392 C430 392 425 335 475 335"/>
+  <rect class="alert" x="875" y="135" width="275" height="130" rx="16"/><text class="h" x="910" y="180">ALERT</text><text class="t" x="910" y="216">distinct users &gt;= 2</text><text class="s" x="910" y="242">preserve and investigate</text>
+  <rect class="quiet" x="875" y="330" width="275" height="130" rx="16"/><text class="h" x="910" y="375">NO ALERT</text><text class="t" x="910" y="411">all events are Alice</text><text class="s" x="910" y="437">normal bound lifecycle</text>
+  <path class="line" d="M780 232 H875"/><path class="line" d="M780 330 C830 330 830 395 875 395"/>
+  <text class="s" x="48" y="535">The application emits raw boundary facts only. It never emits a hijack verdict.</text>
+</svg>

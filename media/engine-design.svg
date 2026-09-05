@@ -57,7 +57,7 @@
     <text x="158" y="286">written by the run, not by hand</text>
     <text x="158" y="310">the writeup</text>
   </g>
-  <text x="44" y="334" font-size="9.5" fill="#6e7781">./range new 03 tool-poisoning scaffolds the whole shape</text>
+  <text x="44" y="334" font-size="9.5" fill="#6e7781">./range new 04 tool-poisoning scaffolds the whole shape</text>
 
   <!-- discovery arrow -->
   <line x1="346" y1="216" x2="366" y2="216" stroke="#8250df" stroke-width="1.6" marker-end="url(#p)"/>
@@ -201,13 +201,17 @@
   <rect x="488" y="678" width="86" height="15" rx="7" fill="#f6f8fa" stroke="#d0d7de"/>
   <text x="531" y="689" font-size="9" fill="#57606a" text-anchor="middle">repro and detect</text>
 
-  <!-- backlog -->
-  <rect x="660" y="612" width="292" height="84" rx="10" fill="#f6f8fa" stroke="#d0d7de" stroke-dasharray="5 4"/>
-  <text x="676" y="632" font-size="12" font-weight="700" fill="#1f2328">Backlog</text>
-  <text x="736" y="632" font-size="9.5" fill="#57606a">catalogued, shipped one at a time</text>
-  <g font-size="9.5" fill="#57606a">
-    <text x="676" y="652">A  OAuth / DCR token theft, audience confusion</text>
-    <text x="676" y="668">B  indirect injection via tool result, rug pull</text>
-    <text x="676" y="684">C  cross-tool exfil, SSRF, sandbox escape</text>
-  </g>
+  <!-- module 03 -->
+  <rect x="660" y="612" width="292" height="84" rx="10" fill="#ffffff" stroke="#bf8700"/>
+  <text x="676" y="636" font-size="11.5" font-weight="700" fill="#1f2328">03 . Cross-client elicitation</text>
+  <rect x="872" y="622" width="66" height="18" rx="9" fill="#fff8c5" stroke="#bf8700"/>
+  <text x="905" y="635" font-size="9" font-weight="700" fill="#9a6700" text-anchor="middle">VM pending</text>
+  <text x="676" y="655" font-size="9.5" fill="#cf222e" font-weight="600">CVE-2026-25536 (7.1), TypeScript SDK</text>
+  <text x="676" y="671" font-size="9.2" fill="#57606a">one elicitation delivered across two clients</text>
+  <rect x="676" y="678" width="50" height="15" rx="7" fill="#eef2ff" stroke="#8250df"/>
+  <text x="701" y="689" font-size="9" font-weight="700" fill="#6639ba" text-anchor="middle">LLM06</text>
+  <rect x="732" y="678" width="66" height="15" rx="7" fill="#f6f8fa" stroke="#d0d7de"/>
+  <text x="765" y="689" font-size="9" fill="#57606a" text-anchor="middle">ATR-70019</text>
+  <rect x="804" y="678" width="134" height="15" rx="7" fill="#fff8c5" stroke="#bf8700"/>
+  <text x="871" y="689" font-size="9" fill="#9a6700" text-anchor="middle">authored, verify on VM</text>
 </svg>

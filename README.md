@@ -49,7 +49,7 @@ A shared **engine** does the rest: `engine/harness/` holds the scenario SDK and 
 `engine/cli/` implements the `./range` command, and `engine/compose.yml` is the sealed base every
 module is merged on top of.
 
-<p align="center"><img src="./media/engine-design.svg" alt="Meridian Range design view in three bands. Band 1, author: a module is one directory holding module.yml, scenario.ts, compose.yml, lab.env, detection, evidence and README. Band 2, the shared engine: the range CLI, the harness with its scenario SDK and transport clients, the sealed compose base with internal true and no published ports, and the vulnerable servers pinned per SDK release. Band 3, running the loop: a reproduce lane of range up, run, ATTACK-OK, verify and matrix, feeding a detect lane of telemetry, ATR rule, detect-test and export, ending at module done. A final band lists what is present today: module 01 CORS session hijack and module 02 DNS rebinding, both VM-verified, plus the catalogued backlog." width="900"></p>
+<p align="center"><img src="./media/engine-design.svg" alt="Meridian Range design view in three bands. Band 1, author: a module is one directory holding module.yml, scenario.ts, compose.yml, lab.env, detection, evidence and README. Band 2, the shared engine: the range CLI, the harness with its scenario SDK and transport clients, the sealed compose base with internal true and no published ports, and the vulnerable servers pinned per SDK release. Band 3, running the loop: a reproduce lane of range up, run, ATTACK-OK, verify and matrix, feeding a detect lane of telemetry, ATR rule, detect-test and export, ending at module done. A final band lists what is present today: modules 01 and 02 are VM-verified, and module 03 is authored pending VM verification." width="900"></p>
 
 |  |  |
 |---|---|
@@ -70,6 +70,7 @@ Built from the module manifests. CVSS shown per anchoring CVE. See the
 |---|--------|:-----:|-------------------|:-----:|:------:|:----:|
 | 01 | [CORS Session Hijack](./modules/01-cors-session-hijack/) | **LLM06** | CVE-2026-34237 (6.1) | ✅ | ✅ | _soon_ |
 | 02 | [DNS Rebinding](./modules/02-dns-rebind/) | **LLM06** | CVE-2025-66414 (7.6) | ✅ | ✅ | _soon_ |
+| 03 | [Cross-Client Elicitation Hijack](./modules/03-cross-client-elicitation-hijack/) | **LLM06** | CVE-2026-25536 (7.1) | 🧪 | ✅ | _soon_ |
 <!-- END GENERATED: catalog-table -->
 
 **Legend:** ✅ shipped and VM-verified · 🧪 authored, **pending VM verification** (`./range verify`).
@@ -104,17 +105,19 @@ Full walkthrough: [`docs/getting-started.md`](./docs/getting-started.md). Every 
 ## Adding an attack
 
 ```bash
-./range new 03 tool-poisoning --name "Tool Description Poisoning"
+./range new 04 tool-poisoning --name "Tool Description Poisoning"
 ```
 
 That scaffolds the whole module directory from the template, and `./range check` then enforces that
 shape on every commit. The ordered checklist and the contribution mechanics are in
 [`docs/CONTRIBUTING.md`](./docs/CONTRIBUTING.md).
 
-The two modules that exist are worth reading end to end:
+The three modules are worth reading end to end:
 [module 01, CORS session hijack](./modules/01-cors-session-hijack/README.md) is the full study, from
 the transport defect to the detection and the one-line fix. [Module 02, DNS
 rebinding](./modules/02-dns-rebind/README.md) is a **separate** attack that defeats the Origin control
-which stops module 01.
+which stops module 01. [Module 03, cross-client elicitation
+hijack](./modules/03-cross-client-elicitation-hijack/README.md) turns unsafe multi-transport server
+reuse into a ghost approval, then detects one elicitation identifier crossing authenticated users.
 
 <div align="right"><a href="#meridian-range">↑ back to top</a></div>

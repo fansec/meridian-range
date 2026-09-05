@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">Deterministic cross-client elicitation sequence</title>
+  <desc id="desc">Alice starts request one before Bob connects. Bob then opens request one, receives Alice's elicitation, accepts it, and Alice's original request returns approved.</desc>
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0 L0 6 L9 3 z" fill="#73dcff"/></marker><style>.bg{fill:#07111f}.h{font-family:Arial,sans-serif;font-size:27px;font-weight:700;fill:#f3f7ff}.t{font-family:Arial,sans-serif;font-size:17px;fill:#dbe9f7}.s{font-family:Arial,sans-serif;font-size:14px;fill:#a9bfd3}.life{stroke:#355674;stroke-width:2;stroke-dasharray:6 7}.m{stroke:#73dcff;stroke-width:3;marker-end:url(#a)}.bad{stroke:#ff6d91;stroke-width:4;marker-end:url(#a)}.ok{stroke:#6ee7b7;stroke-width:4;marker-end:url(#a)}.box{fill:#11263d;stroke:#355674;stroke-width:2}.warn{fill:#3b1e31;stroke:#ff6d91;stroke-width:2}</style></defs>
+  <rect class="bg" width="1200" height="760"/><text class="h" x="46" y="48">Ghost Approval: synchronized request lanes</text>
+  <rect class="box" x="45" y="75" width="220" height="58" rx="12"/><rect class="box" x="360" y="75" width="280" height="58" rx="12"/><rect class="box" x="735" y="75" width="220" height="58" rx="12"/><rect class="box" x="1000" y="75" width="155" height="58" rx="12"/>
+  <text class="t" x="104" y="111">Alice client</text><text class="t" x="397" y="111">Shared McpServer</text><text class="t" x="790" y="111">Bob client</text><text class="t" x="1022" y="111">Audit log</text>
+  <path class="life" d="M155 133 V720"/><path class="life" d="M500 133 V720"/><path class="life" d="M845 133 V720"/><path class="life" d="M1077 133 V720"/>
+  <path class="m" d="M155 175 H493"/><text class="t" x="220" y="165">initialize, ID 0, session A</text>
+  <path class="m" d="M155 235 H493"/><text class="t" x="198" y="225">tools/call approval, ID 1</text>
+  <path class="m" d="M500 285 H1068"/><text class="s" x="660" y="274">initiated: Alice, release-lab-03</text>
+  <path class="m" d="M493 335 H162"/><text class="t" x="212" y="324">progress: approval armed</text>
+  <path class="m" d="M845 395 H507"/><text class="t" x="575" y="384">initialize, ID 0, session B</text>
+  <path class="m" d="M845 455 H507"/><text class="t" x="575" y="444">occupy lane, ID 1</text>
+  <rect class="warn" x="370" y="486" width="600" height="68" rx="12"/><text class="t" x="401" y="515">Alice handler sends elicitation related to ID 1</text><text class="s" x="401" y="540">current transport is Bob, and Bob has request ID 1 open</text>
+  <path class="bad" d="M507 590 H838"/><text class="t" x="568" y="579">elicitation/create for Alice's action</text>
+  <path class="m" d="M845 625 H1068"/><text class="s" x="866" y="614">delivered and answered: Bob</text>
+  <path class="bad" d="M838 660 H507"/><text class="t" x="600" y="650">accept, confirm true</text>
+  <path class="ok" d="M493 705 H162"/><text class="t" x="222" y="695">approved plus lab canary</text>
+</svg>

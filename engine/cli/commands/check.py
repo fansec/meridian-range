@@ -43,6 +43,8 @@ ATR_SEVERITY = {"low", "medium", "high", "critical"}
 ATR_STATUS = {"experimental", "test", "stable"}
 ATR_OPERATORS = {"exact", "regex"}
 ATR_LOGIC = {"all", "any"}
+ATR_CORRELATION_TYPES = {"value_count"}
+ATR_TIMESPAN_RE = re.compile(r"^[1-9]\d*[smhd]$")
 FULL_ATR_RE = re.compile(r"ATR-\d{4}-\d{5}")
 
 errors: list[str] = []
@@ -244,12 +246,38 @@ def _check_atr(m: dict, seen_ids: dict[str, str]) -> None:
             if not c.get("field"):
                 err(f"{rel}: a condition is missing `field`")
 
+        correlation = detection.get("correlation")
+        if correlation is not None:
+            if not isinstance(correlation, dict):
+                err(f"{rel}: detection.correlation must be a mapping")
+            else:
+                if correlation.get("type") not in ATR_CORRELATION_TYPES:
+                    err(f"{rel}: detection.correlation.type must be one of "
+                        f"{sorted(ATR_CORRELATION_TYPES)}")
+                group_by = correlation.get("group_by")
+                if (not isinstance(group_by, list) or not group_by
+                        or any(not isinstance(field, str) or not field for field in group_by)):
+                    err(f"{rel}: detection.correlation.group_by must be a non-empty list of fields")
+                if not isinstance(correlation.get("field"), str) or not correlation.get("field"):
+                    err(f"{rel}: detection.correlation.field must name the distinct-value field")
+                minimum = correlation.get("min_distinct")
+                if not isinstance(minimum, int) or isinstance(minimum, bool) or minimum < 2:
+                    err(f"{rel}: detection.correlation.min_distinct must be an integer of at least 2")
+                within = correlation.get("within")
+                if not isinstance(within, str) or not ATR_TIMESPAN_RE.fullmatch(within):
+                    err(f"{rel}: detection.correlation.within must look like 5m, 1h, or 2d")
+
         tests = doc.get("test_cases") or {}
         if not tests.get("true_positives"):
             err(f"{rel}: test_cases.true_positives must hold at least one case - a rule with no input "
                 f"it was validated against cannot be re-verified by anyone")
         if not tests.get("true_negatives"):
             err(f"{rel}: test_cases.true_negatives must hold at least one case (what must NOT fire)")
+        if correlation is not None:
+            for polarity in ("true_positives", "true_negatives"):
+                for tc in tests.get(polarity) or []:
+                    if not isinstance(tc, dict) or not isinstance(tc.get("events"), list) or not tc.get("events"):
+                        err(f"{rel}: correlated {polarity} cases must each carry a non-empty `events` list")
 
         refs = doc.get("references", {}) or {}
         for axis, allowed in axes.items():

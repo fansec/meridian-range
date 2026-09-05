@@ -1,0 +1,46 @@
+# Module 03 manifest. The exact end-to-end ghost-approval chain remains (verify) until the VM capture.
+version: 1
+
+id: "03"
+slug: "cross-client-elicitation-hijack"
+name: "Cross-Client Elicitation Hijack"
+status: "coming_soon"
+track: "A"
+
+owasp: ["LLM06"]
+asi:   []
+mcp:   ["MCP07 (verify)"]
+atlas: []
+cve:
+  # GitHub Advisory GHSA-345p-7cg4-v4c7, checked 2026-09-05. Affected SDK versions are 1.10.0
+  # through 1.25.3; 1.26.0 adds the multiple-transport guard. CVSS 3.1 is 7.1.
+  - { id: "CVE-2026-25536", cvss: 7.1, cvss_version: "3.1", role: "anchor" }
+cwe: ["CWE-362"]
+
+server:         "servers/mcp-cross-client-ts"
+server_service: "mcp-cross-client"
+transport:      "streamable-http"
+harness_mode:   "deterministic"
+
+matrix:
+  build_arg: "MCP_SDK_VERSION"
+  env_var: null
+  versions:
+    - { version: "1.25.3", expect: "reproduce" }
+    - { version: "1.26.0", expect: "no-repro" }
+
+topology:
+  tiers: ["sealed"]
+  traefik: false
+  roles: []
+
+verified: null
+blog_url: null
+
+description: >
+  Two separately authenticated MCP clients overlap requests against an application that reuses one
+  TypeScript SDK server object across both transports. The later connection can receive and answer
+  an elicitation created inside the earlier client's protected action, turning a user-confirmation
+  boundary into a cross-client confused deputy. The lab changes only fictional in-memory release
+  state and correlates raw initiation, delivery, and answer identities for detection. The exact
+  end-to-end attacker-answer path is (verify) until captured on the isolated VM.

@@ -58,18 +58,20 @@ Vulnerable default:
 ```bash
 ./range run 01     # module 01 (CORS, no DNS) → [ATTACK-OK]
 ./range run 02     # module 02 (DNS rebind)   → [ATTACK-OK]
+./range run 03     # module 03 (ghost approval)  → expected [ATTACK-OK], VM verification pending
 ```
 
 - **`[ATTACK-OK]`** = the vulnerable default reproduced (module 01: wildcard CORS; module 02: no Host check
-  on the post-rebind request).
-- **`[NO-REPRO]`** = the scenario did not reproduce (e.g. no session was issued to the foreign origin/host).
+  on the post-rebind request; module 03: Bob answered the elicitation for Alice's protected action).
+- **`[NO-REPRO]`** = the scenario did not reproduce (for example, the foreign origin or Host was
+  refused, or module 03's second transport attachment was rejected).
 
 `./range run` rebuilds the harness image first, so the VM can never execute stale scenario code. The
 definition-of-done gate is `./range verify <module>`, which asserts ATTACK-OK and has the **harness**
 write the evidence capture to `modules/<NN-slug>/evidence/vuln.txt` on the VM. Bring those captures
 back to the authoring host to commit with `./range sync --pull-evidence`.
 
-`./range matrix 01` re-runs the module against every SDK version and mitigation flag its `module.yml`
+`./range matrix <module>` re-runs a module against every SDK version and mitigation flag its `module.yml`
 declares, producing the affected-versus-patched grid from actual runs rather than from a claim.
 
 ## 5. (optional) real-browser drive-by (module 01)
@@ -147,7 +149,7 @@ Each module carries its own, next to the scenario that produces the signal:
 Author detection rules **disabled** and scope them to the lab host so they can never fire elsewhere.
 
 ## Other commands worth knowing
-- `./range new 03 tool-poisoning` scaffolds a module directory from `modules/_template/`; the catalog is
+- `./range new 04 tool-poisoning` scaffolds a module directory from `modules/_template/`; the catalog is
   a glob over `modules/*/module.yml`, so adding a module means adding a directory and nothing else.
 - `./range check` runs the offline gates (manifest, structure, topology, detections, safety) and
   `./range render` regenerates the module-derived tables in the docs.

@@ -64,7 +64,7 @@ register with, no table to update by hand.
 Start it with the scaffolder, which copies `modules/_template/` and fills in the identity fields:
 
 ```bash
-./range new 03 tool-poisoning --name "Tool Description Poisoning"
+./range new 04 tool-poisoning --name "Tool Description Poisoning"
 ```
 
 The full checklist begins with that command. `./range check`

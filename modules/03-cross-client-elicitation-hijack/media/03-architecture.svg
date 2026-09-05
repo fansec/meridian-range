@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Cross-client elicitation hijack architecture</title>
+  <desc id="desc">Alice and Bob use distinct identities and sessions, but one shared MCP server object routes Alice's elicitation over Bob's later transport.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#6ee7ff"/></marker>
+    <style>
+      .bg{fill:#07111f}.panel{fill:#0e2037;stroke:#284b70;stroke-width:2}.bad{fill:#321b2b;stroke:#ff668a;stroke-width:3}.client{fill:#112d38;stroke:#51d8bf;stroke-width:2}.det{fill:#2a2411;stroke:#f6c85f;stroke-width:2}.h{font-family:Arial,sans-serif;font-size:28px;font-weight:700;fill:#f2f7ff}.t{font-family:Arial,sans-serif;font-size:18px;fill:#d8e7f5}.s{font-family:Arial,sans-serif;font-size:15px;fill:#a9c0d5}.line{fill:none;stroke:#6ee7ff;stroke-width:4;marker-end:url(#arrow)}.audit{fill:none;stroke:#f6c85f;stroke-width:3;stroke-dasharray:8 7;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="630"/>
+  <text class="h" x="52" y="58">Ghost Approval: trust boundaries</text>
+  <rect class="client" x="55" y="110" width="280" height="160" rx="18"/>
+  <text class="h" x="85" y="152">Alice</text><text class="t" x="85" y="190">alice.release-owner</text><text class="s" x="85" y="225">Bearer A, session A</text>
+  <rect class="client" x="55" y="355" width="280" height="160" rx="18"/>
+  <text class="h" x="85" y="397">Bob</text><text class="t" x="85" y="435">bob.external-client</text><text class="s" x="85" y="470">Bearer B, session B</text>
+  <rect class="panel" x="460" y="95" width="355" height="440" rx="20"/>
+  <text class="h" x="500" y="140">Approval service</text>
+  <rect class="panel" x="505" y="180" width="265" height="105" rx="14"/><text class="t" x="535" y="218">Transport A</text><text class="s" x="535" y="250">bound to Alice</text>
+  <rect class="panel" x="505" y="350" width="265" height="105" rx="14"/><text class="t" x="535" y="388">Transport B</text><text class="s" x="535" y="420">bound to Bob</text>
+  <rect class="bad" x="850" y="165" width="295" height="265" rx="20"/>
+  <text class="h" x="885" y="210">Shared McpServer</text><text class="t" x="885" y="250">mutable current transport</text><text class="s" x="885" y="290">1. Alice handler starts</text><text class="s" x="885" y="322">2. Bob connects later</text><text class="s" x="885" y="354">3. Alice elicits</text><text class="s" x="885" y="386">4. Prompt reaches Bob</text>
+  <path class="line" d="M335 190 H505"/><path class="line" d="M335 435 H505"/><path class="line" d="M770 232 H850"/><path class="line" d="M770 402 C820 402 810 292 850 292"/>
+  <rect class="det" x="850" y="480" width="295" height="105" rx="16"/><text class="t" x="885" y="520">ATR-2026-70019</text><text class="s" x="885" y="552">same elicitation ID, 2 users</text>
+  <path class="audit" d="M650 535 C730 590 790 545 850 535"/>
+</svg>

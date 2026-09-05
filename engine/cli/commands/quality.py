@@ -10,7 +10,12 @@ import subprocess
 
 import catalog as cat
 
-TS_PROJECTS = ["engine/harness", "servers/ts-vuln", "engine/attacker/collector"]
+TS_PROJECTS = [
+    "engine/harness",
+    "servers/ts-vuln",
+    "servers/mcp-cross-client-ts",
+    "engine/attacker/collector",
+]
 
 
 def _npm(project: str, *args: str) -> int:

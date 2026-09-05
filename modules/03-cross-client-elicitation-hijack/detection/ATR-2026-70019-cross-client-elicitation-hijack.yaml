@@ -1,0 +1,84 @@
+id: ATR-2026-70019
+title: "MCP elicitation crosses authenticated client principals"
+status: experimental
+severity: high
+description: >
+  Alert when one MCP elicitation identifier appears under two or more authenticated user identities
+  during initiation, delivery, or answer handling. An elicitation is a user-bound confirmation
+  exchange. Seeing the same identifier cross principals can indicate that a shared protocol object
+  routed a server-to-client request over the wrong transport. This analytic consumes neutral audit
+  facts and derives the mismatch in the detection layer; the vulnerable application emits no attack
+  verdict.
+author: "Meridian Range"
+date: "2026/09/05"
+tags:
+  category: cross-client-elicitation-routing
+  scan_target: mcp
+agent_source:
+  type: identity_aware_mcp_audit_log
+detection:
+  condition: all
+  conditions:
+    - field: event.dataset
+      operator: exact
+      value: "mcp.elicitation"
+    - field: event.action
+      operator: regex
+      value: "^elicitation_(initiated|delivered|answered)$"
+    - field: mcp.elicitation.id
+      operator: regex
+      value: "^.{1,128}$"
+    - field: user.id
+      operator: regex
+      value: "^.+$"
+  correlation:
+    type: value_count
+    group_by: [mcp.elicitation.id]
+    field: user.id
+    min_distinct: 2
+    within: 5m
+false_positives:
+  - "A deliberately delegated workflow that preserves one elicitation id while transferring ownership between users"
+response:
+  actions: [alert, preserve_audit_trail, investigate_session_binding]
+references:
+  owasp_llm: [LLM06]
+  cwe: [CWE-362]
+  cve: [CVE-2026-25536]
+test_cases:
+  true_positives:
+    - name: "Alice initiates, Bob receives and answers"
+      events:
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_initiated", mcp.elicitation.id: "release-lab-03", user.id: "alice.release-owner", mcp.session.id: "session-a" }
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_delivered", mcp.elicitation.id: "release-lab-03", user.id: "bob.external-client", mcp.session.id: "session-b" }
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_answered", mcp.elicitation.id: "release-lab-03", user.id: "bob.external-client", mcp.session.id: "session-b" }
+      expected: trigger
+    - name: "Only initiation and wrong-principal delivery are available"
+      events:
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_initiated", mcp.elicitation.id: "approval-904", user.id: "owner-a" }
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_delivered", mcp.elicitation.id: "approval-904", user.id: "client-b" }
+      expected: trigger
+  true_negatives:
+    - name: "Normal single-principal elicitation lifecycle"
+      events:
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_initiated", mcp.elicitation.id: "release-lab-03", user.id: "alice.release-owner", mcp.session.id: "session-a" }
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_delivered", mcp.elicitation.id: "release-lab-03", user.id: "alice.release-owner", mcp.session.id: "session-a" }
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_answered", mcp.elicitation.id: "release-lab-03", user.id: "alice.release-owner", mcp.session.id: "session-a" }
+      expected: no_trigger
+    - name: "Different users handle unrelated elicitation identifiers"
+      events:
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_initiated", mcp.elicitation.id: "approval-a", user.id: "alice" }
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_delivered", mcp.elicitation.id: "approval-a", user.id: "alice" }
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_initiated", mcp.elicitation.id: "approval-b", user.id: "bob" }
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_delivered", mcp.elicitation.id: "approval-b", user.id: "bob" }
+      expected: no_trigger
+    - name: "Unattributed events cannot establish a cross-principal mismatch"
+      events:
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_initiated", mcp.elicitation.id: "approval-c", user.id: "alice" }
+        - { event.dataset: "mcp.elicitation", event.action: "elicitation_delivered", mcp.elicitation.id: "approval-c", mcp.session.id: "session-unknown" }
+      expected: no_trigger
+    - name: "Unrelated audit dataset"
+      events:
+        - { event.dataset: "mcp.access", event.action: "elicitation_initiated", mcp.elicitation.id: "approval-d", user.id: "alice" }
+        - { event.dataset: "mcp.access", event.action: "elicitation_delivered", mcp.elicitation.id: "approval-d", user.id: "bob" }
+      expected: no_trigger

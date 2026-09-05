@@ -36,3 +36,5 @@ export type { McpSession, OpenOpts, OpenResult } from "./types.js";
 export { rpcHeaders, parseRpcBody, resultText, exfil } from "./rpc.js";
 export { SseMcpSession } from "./sse.js";
 export { HttpMcpSession } from "./http.js";
+export { InteractiveMcpClient, interactiveResultText } from "./interactive.js";
+export type { InteractiveClientOptions, InteractiveElicitParams, InteractiveToolResult } from "./interactive.js";

@@ -1,4 +1,4 @@
-# Topology (modules 01 and 02)
+# Topology (modules 01, 02, and 03)
 
 Real host identifiers are redacted to `<LAB_VM>` / `<ATTACKER_IP>` / `<VICTIM_IP>` - the live values live
 only in the local operator notes, never in this repo.
@@ -14,6 +14,8 @@ VM  <LAB_VM>   (isolated test VM; default: only :22/tcp reachable)
    │                                    comparison (--profile fixed; not started by plain `up`)
    ├─ mcp-vuln             172.28.0.10   buildbot-mcp (TypeScript SDK) - the VICTIM server for module 02
    │                                    (DNS rebinding, CVE-2025-66414 class)
+   ├─ mcp-cross-client     172.28.0.20   TypeScript release approval service - module 03
+   │                                    (cross-client elicitation routing, CVE-2026-25536)
    ├─ attacker-collector  172.28.0.66   exfil sink (benign)
    ├─ attacker-web        172.28.0.67   drive-by page - alias attacker.lab.consulereit.nl (SEALED; served by nginx)
    ├─ browser             172.28.0.68   headless Chromium victim (opt-in; --profile browser)
@@ -26,6 +28,9 @@ VM  <LAB_VM>   (isolated test VM; default: only :22/tcp reachable)
 - **`mcp-ci` (module 01) and `mcp-vuln` (module 02) both carry `run_command`** (a shell surface). Both are
   intentionally vulnerable. In the **default** deployment no service defines `ports:`, there is **no DNS
   server**, and neither is reachable off the VM.
+- **`mcp-cross-client` (module 03) has no command, file, or network tool.** It changes only a
+  fictional in-memory release status. Its boundary is elicitation ownership across two separately
+  authenticated sessions, and it remains sealed on the same internal network.
 
 ## Module 01 (CORS session hijack) - NO DNS required
 Module 01 needs no DNS infrastructure. It runs three ways:
@@ -149,11 +154,21 @@ isolated lab LAN only and must be torn down afterwards.
   `internal: true` network, so they resolve to the range's own containers and reach nothing else. The
   collector only ever stores benign canary output.
 
+## Module 03 is sealed only
+
+Module 03 needs neither attacker infrastructure nor a published endpoint. Both parties are legitimate
+clients of one service, and the failed boundary is inside the application's protocol-object lifecycle.
+The ephemeral harness creates Alice and Bob as separate official SDK clients inside `labnet`; each uses
+its own fabricated bearer token and receives its own MCP session. Keeping the scenario sealed removes
+DNS, browsers, reverse proxies, and outside timing from the result.
+
 ## Names & aliases
 Scenarios address services by **labnet alias**, not by IP, so the static IPs above are for
 reference/ordering only. Each module's `scenario.ts` gets those aliases from its own committed
 `modules/<NN-slug>/lab.env`: module 01 addresses `mcp.lab.consulereit.nl`, and module 02 addresses
-`mcp.lab.consulereit.nl` while presenting a forged `Host: rebind.lab.consulereit.nl` to model the post-rebind request.
+`mcp.lab.consulereit.nl` while presenting a forged `Host: rebind.lab.consulereit.nl` to model the
+post-rebind request. Module 03 uses `mcp.lab.consulereit.nl` with two public, fabricated bearer-token
+fixtures.
 
 ## Coexistence note
 The compose project reuses the `172.28.0.0/16` subnet and fixed container names. If another MCP lab

@@ -5,9 +5,12 @@
 > shared with any real/production data, never scope, enable, or edit anything for another host or policy.
 > Placeholders: `<LAB_HOST>` = lab VM `host.name`, `<LAB_POLICY>` = lab agent policy.
 
-Two independent detection layers per attack. Attack 01 (CVE-2026-34237 CORS session hijack) is the
-reference. The governing principle: **the SOC does not control the vulnerable application**, so every
-detection is built from SOC-owned telemetry, and any hijack *verdict* is derived at ingest - never read
+Prefer two independent detection layers when the attack creates both endpoint and transport signals.
+Attack 01 (CVE-2026-34237 CORS session hijack) is the reference. If an attack deliberately creates no
+process, file, or network side effect, document that absence instead of manufacturing a noisy endpoint
+proxy. Module 03 is this case and uses an identity-aware MCP elicitation correlation. The governing
+principle is unchanged: **the SOC does not control the vulnerable application**, so every detection is
+built from SOC-owned telemetry, and any hijack *verdict* is derived at ingest or query time, never read
 from a field the vulnerable app computed about itself.
 
 ---
@@ -96,12 +99,28 @@ SOC derives the verdict. (Module 02 is out of scope for the CVE-2026-34237 work;
 remedy applies to it - derive `foreign_host` SOC-side from the raw `Host` header. See
 [`modules/02-dns-rebind/detection/elastic.md`](../modules/02-dns-rebind/detection/elastic.md).)
 
+## Module 03 - elicitation boundary telemetry
+
+Cross-client elicitation routing creates no useful process event, so module 03 records neutral facts at
+the three protocol boundaries a defender needs: initiation under the tool request's validated identity,
+delivery under the transport's bound identity, and answer receipt under the responding HTTP request's
+validated identity. All carry the same `mcp.elicitation.id`.
+
+The application does not compare those identities or emit a verdict. ATR-2026-70019 groups by
+`mcp.elicitation.id` and counts distinct `user.id` values in the SOC layer. Delivery identity must come
+from the transport that actually sent the request, not from the initiating handler. See
+[`modules/03-cross-client-elicitation-hijack/detection/elastic.md`](../modules/03-cross-client-elicitation-hijack/detection/elastic.md).
+
 ---
 
-## Validation / definition-of-done per attack
+## Validation / definition-of-done for modules 01 and 02
 
 1. Run the scenario (VULNERABLE default) -> the Layer A (Defend) and Layer B (`mcp.access` + derived
    `mcp.cors.cross_origin`) rules each generate a signal (`ATTACK-OK`).
 2. Confirm both stay silent on benign traffic: a local client sends no browser `Origin`
    (`mcp.cors.cross_origin` false) and spawns no cross-origin-triggered shell. That is the clean negative.
 3. Only then flip the rule `enabled: true`, scoped to `host.name : <LAB_HOST>`.
+
+For module 03, replace the endpoint layer with the three elicitation audit events. Verify that the
+vulnerable run produces two identities for one elicitation ID, the fixed run does not, and the
+single-principal negative remains silent before enabling the lab-scoped rule.

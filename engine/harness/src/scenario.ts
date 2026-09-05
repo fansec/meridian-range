@@ -31,6 +31,9 @@ export type Target = {
   origin?: string;
   /** Forged Host header, when the attack is a name-confusion one (DNS rebinding). */
   hostHeader?: string;
+  /** Fabricated authenticated principals used by session-isolation modules. */
+  ownerPrincipal?: { id: string; token: string };
+  attackerPrincipal?: { id: string; token: string };
   collectorUrl: string;
 };
 
@@ -120,8 +123,17 @@ export function resolveTarget(m: ModuleMeta): Target {
     messagePath: env("MCP_MESSAGE_PATH") ?? "/mcp/message",
     origin: env("LAB_EVIL_ORIGIN"),
     hostHeader: env("LAB_REBIND_HOST"),
+    ownerPrincipal: principalFixture("MCP_OWNER_ID", "MCP_OWNER_TOKEN"),
+    attackerPrincipal: principalFixture("MCP_ATTACKER_ID", "MCP_ATTACKER_TOKEN"),
     collectorUrl: env("LAB_COLLECTOR_URL") ?? "http://collector.lab.consulereit.nl:9000/pwned",
   };
+}
+
+function principalFixture(idName: string, tokenName: string): { id: string; token: string } | undefined {
+  const id = env(idName);
+  const token = env(tokenName);
+  if (!id || !token) return undefined;
+  return { id, token };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -233,7 +245,9 @@ export type Scenario = ReturnType<typeof defineScenario>;
 function attackerLabel(m: ModuleMeta): string {
   const origin = env("LAB_EVIL_ORIGIN");
   const host = env("LAB_REBIND_HOST");
+  const principal = env("MCP_ATTACKER_ID");
   if (origin) return `Origin ${origin}`;
   if (host) return `Host ${host}`;
+  if (principal) return `authenticated principal ${principal} (fabricated lab credential)`;
   return `(same-origin, module ${m.id})`;
 }
