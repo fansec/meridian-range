@@ -56,9 +56,9 @@ self-contained directory. Only range-wide artwork lives here.
 
   Re-render it whenever the module count changes: the green chip claims a number.
 
-- [`engine-design.svg`](./engine-design.svg) - the design view embedded in the top-level
-  [`README.md`](../README.md): how a module is authored, what shared engine runs it, the two lanes of
-  the reproduce-to-detect loop, and what is in the range today.
+- [`engine-design.svg`](./engine-design.svg) - the simple workflow embedded in the top-level
+  [`README.md`](../README.md): package one published flaw, reproduce it with a benign canary inside
+  the isolated VM, and turn the resulting telemetry into a tested detection.
 - [`labnet-topology.svg`](./labnet-topology.svg) - the labnet topology (attack 01), embedded in
   [`docs/topology.md`](../docs/topology.md).
 
